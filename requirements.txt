@@ -1,0 +1,3 @@
+# lif environment requirements for ConvertLeica-Docker
+numpy
+pyvips

@@ -1,0 +1,12 @@
+[
+    {
+        "name": "Image Name",   
+        "subpath": "File Path relative to the docker data volume (i.e. inputfile path)",
+        "keyvalues": [
+            {
+                "experiment_name": "Cells in mouse brain",
+                "experiment_date": "2025-05-01"
+            }
+        ]
+    }
+]
