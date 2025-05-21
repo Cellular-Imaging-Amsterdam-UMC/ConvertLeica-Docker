@@ -1,7 +1,8 @@
 [
     {
         "name": "Image Name",   
-        "subpath": "File Path relative to the docker data volume (i.e. inputfile path)",
+        "full_path": "File Path relative to the docker data volume (i.e. inputfile path)",
+        "alt_path": "File Path relative to the docker data volume (i.e. inputfile path)",
         "keyvalues": [
             {
                 "experiment_name": "Cells in mouse brain",
