@@ -1,0 +1,109 @@
+body {
+    background-color: #121212;
+    color: #ccc;
+    font-family: sans-serif;
+}
+a {
+    color: #3794ff;
+    text-decoration: none;
+    cursor: pointer;
+}
+a:hover {
+    color: #66aaff;
+    text-decoration: underline;
+}
+.folder {
+    color: #3794ff;
+    cursor: pointer;
+}
+.folder:hover {
+    color: #66aaff;
+    text-decoration: underline;
+}
+#breadcrumb {
+    margin-bottom: 10px;
+}
+#container {
+    display: flex;
+}
+#folderTreeContainer {
+    width: 450px;
+    border-right: 1px solid #444;
+    padding: 10px;
+}
+#fileListContainer {
+    padding: 10px;
+    flex-grow: 1;
+}
+#previewContainer {
+    width: 256px;
+    padding: 10px;
+    border-left: 1px solid #444;
+}
+#previewImage {
+    max-width: 100%;
+    max-height: 256px;
+}
+#files li:hover {
+    background-color: #333;
+    cursor: pointer;
+    color: #66aaff;
+}
+#imageNameDisplay {
+    font-size: 0.7em;
+    margin-bottom: 5px;
+}
+#imageUuidDisplay {
+    font-size: 0.7em;
+    color: #888;
+    margin-bottom: 10px;
+}
+#metadataDisplay {
+    margin-top: 10px;
+    font-size: 0.9em;
+}
+#folderMetadataContainer {
+    padding: 10px;
+    border-top: 1px solid #444;
+    margin-top: 10px;
+}
+#folderMetadata {
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+#actionButtonsContainer {
+    padding: 10px;
+    border-top: 1px solid #444;
+    margin-top: 10px;
+}
+#convertLeicaButton {
+    background-color: #3794ff;
+    color: white;
+    border: none;
+    padding: 8px 15px;
+    border-radius: 3px;;
+    cursor: pointer;
+}
+#exportStatus {
+    margin-left: 10px;
+    color: #ccc;
+}
+
+#conversionProgressOutput {
+    background-color: #222; /* Dark background for the progress box */
+    color: #ddd; /* Light text color */
+    padding: 10px;
+    margin-top: 10px;
+    border: 1px solid #444;
+    border-radius: 3px;
+    max-height: 200px; /* Limit height and enable scrolling */
+    overflow-y: auto;   /* Add scrollbar if content exceeds max-height */
+    font-family: monospace; /* Use a monospaced font for console-like output */
+    font-size: 0.9em;
+    display: none; /* Initially hidden */
+}
+
+#conversionProgressOutput p { /* Style for individual progress lines */
+    margin: 0 0 5px 0; /* Add a little space between lines */
+    word-break: break-all; /* Break long lines if necessary */
+}

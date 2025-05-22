@@ -40,10 +40,10 @@ from leica_converter import convert_leica
 # lif_file_path = 'L:/Archief/active/cellular_imaging/OMERO_test/Leica-LOF/100T-21-P-NegOverlapTilescan.lof'  # Replace with your LIF file path
 # image_uuid='n/a'
 
-lif_file_path = 'E:/data/100T-21-P-NegOverlapTilescan.lif'  # Replace with your LIF file path
-outputfolder = 'E:/data/.processed'
-altoutputfolder='U:/cc'
-image_uuid='8b48019d-6bf8-11ee-be69-80e82ce1e716'
+# lif_file_path = 'E:/data/100T-21-P-NegOverlapTilescan.lif'  # Replace with your LIF file path
+# outputfolder = 'E:/data/.processed'
+# altoutputfolder='U:/cc'
+# image_uuid='8b48019d-6bf8-11ee-be69-80e82ce1e716'
 
 # lif_file_path='L:/Archief/active/cellular_imaging/OMERO_test/Leica-XLEF/2025_05_01_14_00_03--LongTime/Project002.xlef'
 # image_uuid = "e778565c-2683-11f0-858b-c8d9d2330798" 
@@ -62,6 +62,11 @@ image_uuid='8b48019d-6bf8-11ee-be69-80e82ce1e716'
 # outputfolder = 'L:/Archief/active/cellular_imaging/OMERO_test/Leica-XLEF/Large-2024_12_27_05_31_41--39 15 min/.processed'
 # altoutputfolder='U:/cc'
 # image_uuid = "b19e0183-c410-11ef-95b4-0068eba53758" # Large tilescan
+
+lif_file_path='L:/Archief/active/cellular_imaging/OMERO_test/Leica-LIF/Test-3-4-Channels.lif'
+outputfolder = 'L:/Archief/active/cellular_imaging/OMERO_test/Leica-LIF/.processed'
+altoutputfolder='U:/cc'
+image_uuid = "787dd736-c4c9-11ee-be7a-80e82ce1e716" 
 
 status=convert_leica(
     inputfile=lif_file_path,

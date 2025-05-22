@@ -566,7 +566,7 @@ def parse_image_xml(xml_element):
     calculated_overlap_y_from_tiles = False
 
     # Calculate OverlapPercentageX from tile positions if not found in StitchingSettings
-    if len(metadata.get('tile_positions', [])) > 1 and \
+    if metadata.get('tiles', 1) > 1 and \
        metadata['xs'] > 0 and metadata.get('xres2', 0) > 0:
         
         tile_width_um = metadata['xs'] * metadata['xres2'] # tile_width_um is already in micrometers
@@ -598,7 +598,7 @@ def parse_image_xml(xml_element):
                     calculated_overlap_x_from_tiles = True
 
     # Calculate OverlapPercentageY from tile positions if not found in StitchingSettings
-    if len(metadata.get('tile_positions', [])) > 1 and \
+    if metadata.get('tiles', 1) > 1 and \
        metadata['ys'] > 0 and metadata.get('yres2', 0) > 0:
 
         tile_height_um = metadata['ys'] * metadata['yres2'] # tile_height_um is already in micrometers

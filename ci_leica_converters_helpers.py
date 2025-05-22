@@ -8,6 +8,48 @@ from ReadLeicaLIF import read_leica_lif
 from ReadLeicaLOF import read_leica_lof
 from ReadLeicaXLEF import read_leica_xlef
 
+def get_image_metadata_LOF(folder_metadata, image_uuid):
+    folder_metadata_dict = json.loads(folder_metadata)
+    image_metadata_dict = next((img for img in folder_metadata_dict["children"] if img["uuid"] == image_uuid), None)
+    image_metadata = read_leica_file(image_metadata_dict['lof_file_path'])
+    return image_metadata
+
+def get_image_metadata(folder_metadata, image_uuid):
+    folder_metadata_dict = json.loads(folder_metadata)
+    image_metadata_dict = next((img for img in folder_metadata_dict["children"] if img["uuid"] == image_uuid), None)
+    image_metadata = json.dumps(image_metadata_dict, indent=2)
+    return image_metadata
+
+def read_leica_file(file_path, include_xmlelement=False, image_uuid=None, folder_uuid=None):
+    """
+    Read Leica LIF, XLEF, or LOF file.
+
+    Parameters:
+    - file_path: path to the LIF, XLEF, or LOF file
+    - include_xmlelement: whether to include the XML element in the lifinfo dictionary
+    - image_uuid: optional UUID of an image
+    - folder_uuid: optional UUID of a folder/collection
+
+    Returns:
+    - If image_uuid is provided:
+        - Returns the lifinfo dictionary for the matching image, including detailed metadata.
+    - Else if folder_uuid is provided:
+        - Returns a single-level XML tree (as a string) of that folder (its immediate children only).
+    - Else (no image_uuid or folder_uuid):
+        - Returns a single-level XML tree (as a string) of the root/top-level folder(s) or items.
+    """
+    _, ext = os.path.splitext(file_path)
+    ext = ext.lower()
+
+    if ext == '.lif':
+        return read_leica_lif(file_path, include_xmlelement, image_uuid, folder_uuid)
+    elif ext == '.xlef':
+        return read_leica_xlef(file_path, folder_uuid)
+    elif ext == '.lof':
+        return read_leica_lof(file_path, include_xmlelement)
+    else:
+        raise ValueError('Unsupported file type: {}'.format(ext))
+
 # --------------------------------------------------------------------------
 # Public helper - numpy dtype → pyvips format string
 # --------------------------------------------------------------------------

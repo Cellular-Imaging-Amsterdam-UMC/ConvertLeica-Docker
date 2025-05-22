@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Leica File Explorer and Converter</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <h1>Leica File Explorer and Converter</h1>
+    <div id="breadcrumb"></div>
+    <div id="container">
+        <div id="folderTreeContainer">
+            <h3>Folders</h3>
+            <ul id="folderTree"></ul>
+        </div>
+        <div id="fileListContainer">
+            <h3>Images</h3>
+            <ul id="files"></ul>
+        </div>
+        <div id="previewContainer">
+            <h3>Preview</h3>
+            <div id="imageNameDisplay"></div>
+            <div id="imageUuidDisplay"></div>
+            <img id="previewImage" src="" alt="Preview Image">
+            <div id="metadataDisplay"></div>
+        </div>
+    </div>
+    <div id="folderMetadataContainer">
+        <h3>Folder/Image Metadata</h3>
+        <pre id="folderMetadata"></pre>
+    </div>
+    <div id="actionButtonsContainer">
+        <button id="convertLeicaButton">Convert Image</button>
+        <span id="exportStatus"></span>
+        <div id="conversionProgressOutput"></div>    <!-- new -->
+    </div>
+    <script>
+        const ROOT_DIR = "L:/Archief/active/cellular_imaging/OMERO_test";
+        const API_BASE = "http://localhost:8000/api";
+        const SHOW_FOLDERMETADATA = false; // Toggle to show/hide folder metadata
+        const SHOW_IMAGEMETADATA = false; // Toggle to show/hide image metadata
+        const MAX_XY_SIZE = 4096;
+        const PREVIEW_SIZE = 384;
+
+        // Add these two variables for tracking current image selection
+        let currentImageUuid = null;
+        let currentFilePath = null;
+
+        // Helper to convert Windows backslashes to forward slashes.
+        function normalizePath(path) {
+            return path.replace(/\\/g, "/");
+        }
+
+        // Store the breadcrumb history
+        let breadcrumbHistory = [];
+        let currentFolderMetadata = null;  // Store folder_metadata
+
+        // Updated buildBreadcrumb to render using breadcrumbHistory entries.
+        function buildBreadcrumb() {
+            const normRoot = normalizePath(ROOT_DIR);
+            let breadcrumbHTML = `<a onclick="loadDir('${normRoot}')" class="folder">${ROOT_DIR}</a>`;
+            breadcrumbHistory.forEach(crumb => {
+                let onclick = `loadDir('${crumb.path}'`;
+                if (crumb.uuid) {
+                    onclick += `, '${crumb.uuid}'`;
+                }
+                if (crumb.name) {
+                    onclick += `, '${crumb.name}'`;
+                }
+                onclick += `)`;
+                breadcrumbHTML += ` / <a onclick="${onclick}" class="folder">${crumb.name}</a>`;
+            });
+            document.getElementById("breadcrumb").innerHTML = breadcrumbHTML;
+        }
+
+        async function fetchList(dir, folder_uuid = null) {
+            let url = `${API_BASE}/list?dir=${encodeURIComponent(dir)}`;
+            if (folder_uuid) {
+                url += `&folder_uuid=${folder_uuid}`;
+            }
+            try {
+                const res = await fetch(url);
+                const data = await res.json();
+                currentFolderMetadata = data.folder_metadata;  // Store folder_metadata
+                return data;
+            } catch (err) {
+                console.error("Error fetching list:", err);
+            }
+        }
+
+        // Create a clickable folder item.
+        function createFolderItem(item) {
+            const li = document.createElement("li");
+            li.textContent = item.name;
+            li.className = "folder";
+            li.onclick = async () => {
+                // Only pass folder_uuid if it exists.
+                if(item.uuid) {
+                    await loadDir(normalizePath(item.path), item.uuid, item.name);
+                } else {
+                    await loadDir(normalizePath(item.path), null, item.name);
+                }
+            };
+            return li;
+        }
+
+        async function fetchImageMetadata(filePath) {
+            try {
+                const res = await fetch(`${API_BASE}/lof_metadata`, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({ filePath })
+                });
+                const data = await res.json();
+                return data;
+            } catch (err) {
+                console.error("Error fetching image metadata:", err);
+                return null;
+            }
+        }
+
+        function createFileItem(item) {
+            const li = document.createElement("li");
+            let imageName = item.name;
+            if (item.metadata) {
+                try {
+                    const meta = JSON.parse(item.metadata);
+                    // Extract dimensions from the item itself
+                    if (item && item.xs && item.ys) {
+                        const xs = item.xs;
+                        const ys = item.ys;
+                        if (xs > MAX_XY_SIZE || ys > MAX_XY_SIZE) {
+                            imageName += ` <span style="font-size: 0.7em;">(tilescan: ${xs}x${ys})</span>`;
+                        }
+                    }
+                    if (item && item.tiles && item.tiles > 1) {
+                        imageName += ` <span style="font-size: 0.7em;">(tiles: ${item.tiles})</span>`;
+                    }
+                } catch (e) {
+                    console.error("Error parsing metadata:", e);
+                }
+            }
+
+            // Fetch LOF metadata and update imageName before onclick
+            if (item.path.toLowerCase().endsWith(".lof")) {
+                fetchImageMetadata(item.path)
+                    .then(meta => {
+                        if (meta) {
+                            item.metadata = meta;
+                            if (meta.xs > MAX_XY_SIZE || meta.ys > MAX_XY_SIZE) {
+                                imageName += ` <span style="font-size: 0.7em;">(tilescan: ${meta.xs}x${meta.ys})</span>`;
+                            }
+                            if (meta.tiles > 1) {
+                                imageName += ` <span style="font-size: 0.7em;">(tiles: ${meta.tiles})</span>`;
+                            }
+                            li.innerHTML = imageName; // Update li.innerHTML here
+                        }
+                    });
+            }
+
+            li.innerHTML = imageName;
+            li.onclick = async () => {
+                await loadPreview(item);
+            };
+            return li;
+        }
+
+        async function loadDir(dir, folder_uuid = null, folderName = null) {
+            // Set a default folder name if none is provided.
+            folderName = folderName || dir.split(/[\/\\]/).pop();
+            // If the folder_uuid equals the folder's name, treat it as a normal folder.
+            if (folder_uuid === folderName) {
+                folder_uuid = null;
+            }
+            const normRoot = normalizePath(ROOT_DIR);
+            const baseDir = normalizePath(dir);
+            const normUuid = folder_uuid ? folder_uuid : "";
+            // Create a unique path by appending the folder_uuid if present.
+            const uniquePath = normUuid ? baseDir + '#' + normUuid : baseDir;
+
+            // Update breadcrumbHistory: clear if at root.
+            if (uniquePath === normRoot) {
+                breadcrumbHistory = [];
+            } else {
+                // If the last crumb already matches this uniquePath, do nothing.
+                if (breadcrumbHistory.length > 0 && breadcrumbHistory[breadcrumbHistory.length - 1].uniquePath === uniquePath) {
+                    // Do nothing: avoid duplicate.
+                } else {
+                    const existingIndex = breadcrumbHistory.findIndex(item => item.uniquePath === uniquePath);
+                    if (existingIndex !== -1) {
+                        breadcrumbHistory = breadcrumbHistory.slice(0, existingIndex + 1);
+                    } else {
+                        breadcrumbHistory.push({ name: folderName, uniquePath: uniquePath, path: dir, uuid: folder_uuid });
+                    }
+                }
+            }
+
+            const listData = await fetchList(dir, folder_uuid);
+            const folderTree = document.getElementById("folderTree");
+            const filesUl = document.getElementById("files");
+
+            // Clear previous views.
+            folderTree.innerHTML = "";
+            filesUl.innerHTML = "";
+            buildBreadcrumb();
+
+            // Set default preview image and clear metadata
+            document.getElementById("previewImage").src = "preview.png";
+            document.getElementById("imageNameDisplay").innerText = "";
+            document.getElementById("imageUuidDisplay").innerText = ""; // Add this line
+            document.getElementById("metadataDisplay").innerHTML = "";
+
+            const folderItems = [];
+            const fileItems = [];
+
+            listData.items.forEach(item => {
+                if (item.type === "Folder") {
+                    folderItems.push(item);
+                } else {
+                    // Add metadata to the item before creating the file item
+                    item.metadata = currentFolderMetadata;
+                    fileItems.push(item);
+                }
+            });
+
+            // Sort folder items alphabetically by name
+            folderItems.sort((a, b) => a.name.localeCompare(b.name));
+
+            folderItems.forEach(item => {
+                folderTree.appendChild(createFolderItem(item));
+            });
+
+            fileItems.forEach(item => {
+                filesUl.appendChild(createFileItem(item));
+            });
+
+            // Display folder metadata
+            const folderMetadataContainer = document.getElementById("folderMetadataContainer");
+            const folderMetadataDisplay = document.getElementById("folderMetadata");
+            if (SHOW_FOLDERMETADATA && currentFolderMetadata) {
+                // Format the JSON data into HTML
+                const formattedMetadata = JSON.stringify(JSON.parse(currentFolderMetadata), null, 2);
+                folderMetadataDisplay.textContent = formattedMetadata;
+                folderMetadataContainer.style.display = "block"; // Show the container
+            } else {
+                folderMetadataContainer.style.display = "none"; // Hide the container
+            }
+        }
+
+        // Modify the loadPreview function to update currentImageUuid and currentFilePath
+        // and show/hide the export button
+        async function loadPreview(item) {
+            // Store current image information for export
+            currentImageUuid = item.uuid;
+            currentFilePath = item.path;
+
+            // Reset the export status message when a new image is selected
+            document.getElementById("exportStatus").textContent = "";
+            
+            // Hide the progress container if it exists
+            const progressContainer = document.getElementById('progressContainer');
+            if (progressContainer) {
+                progressContainer.style.display = 'none';
+            }
+
+            // Update the UUID display - add this line
+            document.getElementById("imageUuidDisplay").innerText = item.uuid ? `UUID: ${item.uuid}` : "";
+
+            // Check file extension (case-insensitive)
+            const allowed = ["lif", "xlef", "lof"];
+            const ext = item.path.split('.').pop().toLowerCase();
+            if (allowed.indexOf(ext) === -1) {
+                // Not an allowed file type for preview; display default preview
+                document.getElementById("previewImage").src = "preview.png";
+                document.getElementById("imageNameDisplay").innerText = "";
+                document.getElementById("metadataDisplay").innerHTML = "";
+                
+                // Hide the export button for non-supported files
+                document.getElementById("convertLeicaButton").style.display = "none";
+                return;
+            }
+            try {
+                const res = await fetch(`${API_BASE}/preview`, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({
+                        filePath: item.path,
+                        image_uuid: item.uuid || 'n/a',
+                        folder_metadata: currentFolderMetadata,  // Send folder_metadata
+                        preview_height: PREVIEW_SIZE
+                    })
+                });
+                const data = await res.json();
+                document.getElementById("previewImage").src = data.src;
+                let meta;
+                try {
+                    meta = JSON.parse(data.metadata);
+                } catch(e) {
+                    meta = {};
+                }
+                if(meta.save_child_name) {
+                    document.getElementById("imageNameDisplay").innerText = meta.save_child_name;
+                } else {
+                    document.getElementById("imageNameDisplay").innerText = "";
+                }
+                updateMetadata(data.metadata);
+
+                const convertLeicaButton = document.getElementById("convertLeicaButton");
+
+                // Show the convertLeicaButton only for images inside LIF files
+                if (item.path.toLowerCase().endsWith('.lif') && item.uuid) {
+                    convertLeicaButton.style.display = "inline-block";
+                } else {
+                    convertLeicaButton.style.display = "none";
+                }
+
+                // Display image metadata in the folder metadata container
+                const folderMetadataContainer = document.getElementById("folderMetadataContainer");
+                const folderMetadataDisplay = document.getElementById("folderMetadata");
+                if (SHOW_IMAGEMETADATA) {
+                    const formattedMetadata = JSON.stringify(JSON.parse(data.metadata), null, 2);
+                    folderMetadataDisplay.textContent = formattedMetadata;
+                    folderMetadataContainer.style.display = "block";
+                } else {
+                    folderMetadataContainer.style.display = "none";
+                }
+            } catch (err) {
+                console.error("Error fetching preview:", err);
+                document.getElementById("previewImage").src = "preview.png";
+                document.getElementById("imageNameDisplay").innerText = "";
+                document.getElementById("convertLeicaButton").style.display = "none";
+            }
+        }
+
+        // New function to update displayed metadata using image_metadata.
+        function updateMetadata(metaString) {
+            if (!metaString) return;
+            let meta;
+            try {
+                meta = JSON.parse(metaString);
+            } catch (e) {
+                console.error("Invalid metadata JSON", e);
+                return;
+            }
+            const dims = meta.dimensions || {};
+            let colorInfo;
+            if (meta.isrgb === true || meta.isrgb === "true") {
+                colorInfo = "RGB Image";
+            } else {
+                colorInfo = "Channels: " + (dims.c || '?');
+            }
+            // Round pixel size to 3 decimals if available.
+            let pixelSize = 'N/A';
+            if (meta.xres2) {
+                const numVal = parseFloat(meta.xres2);
+                if (!isNaN(numVal)) {
+                    pixelSize = numVal.toFixed(3);
+                }
+            }
+            // Determine if a Z-step should be displayed when slices > 1.
+            let zStepText = "";
+            if (dims.z && parseFloat(dims.z) > 1 && meta.zres2) {
+                // Use the absolute value for zres2.
+                const zVal = Math.abs(parseFloat(meta.zres2));
+                if (!isNaN(zVal)) {
+                    zStepText = `<br>Z-Step (um): ${zVal.toFixed(3)}`;
+                }
+            }
+            // Build metadata text.
+            const text = `XY (pixels) : ${dims.x || '?'} x ${dims.y || '?'}<br>
+                Pixel size (um): ${pixelSize}<br>
+                Z-Slices: ${dims.z || '?'}${zStepText}<br>
+                ${colorInfo}<br>
+                Timepoints: ${dims.t || '?'}<br>
+                Tiles: ${dims.s || '?'}<br>`;
+            document.getElementById("metadataDisplay").innerHTML = text;
+        }
+
+        // Now, in your export button click handler, replace the polling code with:
+        document.getElementById('convertLeicaButton').addEventListener('click', async () => {
+            if (!currentFilePath || (!currentFilePath.endsWith('.lof') && !currentImageUuid)) {
+                alert('No image selected'); return;
+            }
+            const status = document.getElementById('exportStatus');
+            const out = document.getElementById('conversionProgressOutput');
+            const btn = document.getElementById('convertLeicaButton');
+            status.textContent = 'Starting...';
+            out.innerHTML = ''; out.style.display='block';
+            btn.disabled = true;
+
+            const resp = await fetch(`${API_BASE}/convert_leica`, {
+                method:'POST',
+                headers:{'Content-Type':'application/json'},
+                body: JSON.stringify({filePath:currentFilePath, image_uuid: currentImageUuid||'n/a'})
+            });
+            if (!resp.ok) {
+                const err = await resp.json().catch(()=>({error:`${resp.status}`}));
+                status.textContent = `Error: ${err.error||resp.status}`;
+                btn.disabled = false;
+                return;
+            }
+            const reader = resp.body.pipeThrough(new TextDecoderStream()).getReader();
+            let buf = '';
+            while(true) {
+                const {value,done} = await reader.read();
+                if (done) { btn.disabled=false; break; }
+                buf += value;
+                let idx;
+                while((idx=buf.indexOf('\n\n'))>=0) {
+                    const line = buf.slice(0,idx);
+                    buf = buf.slice(idx+2);
+                    if (line.startsWith('data: ')) {
+                        const ev = JSON.parse(line.slice(6));
+                        if (ev.type==='progress') {
+                            const p = document.createElement('p');
+                            p.textContent = ev.message;
+                            out.appendChild(p); out.scrollTop = out.scrollHeight;
+                        }
+                        else if(ev.type==='result') {
+                            const res = ev.payload;
+                            status.textContent = res.success && res.result.length
+                                ? `Converted: ${res.result[0].full_path}`
+                                : `Error: ${res.error||'failed'}`;
+                        }
+                        else if(ev.type==='error') {
+                            status.textContent = `Error: ${ev.message}`;
+                            const p = document.createElement('p');
+                            p.style.color='red'; p.textContent=`ERR: ${ev.message}`;
+                            out.appendChild(p); out.scrollTop=out.scrollHeight;
+                        }
+                        else if(ev.type==='end') {
+                            btn.disabled = false;
+                            return;
+                        }
+                    }
+                }
+            }
+        });
+
+        // Initial load using ROOT_DIR.
+        loadDir(normalizePath(ROOT_DIR));
+    </script>
+</body>
+</html>
