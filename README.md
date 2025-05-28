@@ -18,6 +18,7 @@ ConvertLeica-Docker is a toolset and web interface for converting Leica LIF, LOF
   - [Browsing and Conversion](#browsing-and-conversion)
 - [Special Cases](#special-cases)
 - [Troubleshooting](#troubleshooting)
+- [Windows Users: libvips DLLs Required](#windows-users-libvips-dlls-required)
 - [License](#license)
 
 ---
@@ -161,7 +162,15 @@ python server.py
 - For large files, ensure sufficient disk space and memory
 - If you encounter errors, check the console output for details
 
----
+## Windows Users: libvips DLLs Required
+
+**Warning for Windows users:** The `pyvips` Python package requires the native libvips DLLs to be present on your system. These are not installed automatically by pip or conda. If you see errors like `No module named '_libvips'` or `cannot load library 'libgobject-2.0-0.dll'`, you need to:
+
+1. Download the latest Windows libvips binary from: https://github.com/libvips/libvips/releases (choose the latest `vips-dev-w64-all` zip file).
+2. Extract the zip file to a folder, e.g., `C:\bin\vips`.
+3. Add the `bin` subfolder (e.g., `C:\bin\vips\bin`) to your Windows PATH environment variable.
+
+> **Note:** This project attempts to set the PATH for libvips automatically in `ci_leica_converters_ometiff.py` and `ci_leica_converters_ometiff_rgb.py`, defaulting to `C:\bin\vips\bin`. If you extract libvips elsewhere, update the PATH in those files or your system PATH accordingly.
 
 ## Output Format
 
@@ -192,3 +201,5 @@ You can parse this output in Python using `json.loads()` to access the result pr
 ## License
 
 MIT License
+
+

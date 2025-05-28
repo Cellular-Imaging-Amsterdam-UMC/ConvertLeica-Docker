@@ -7,6 +7,7 @@ import gc
 import re
 from html import escape as escape_xml_chars
 import math # Added for math.ceil
+import sys
 
 # Import helpers from the dedicated module
 from ci_leica_converters_helpers import (
@@ -17,12 +18,12 @@ from ci_leica_converters_helpers import (
     metadata_schema # This already contains the parsed schema
 )
  
-vips_bin_dir = r"C:\bin\vips\bin"
-os.environ["PATH"] = os.pathsep.join((vips_bin_dir, os.environ["PATH"]))
- 
-import pyvips  # (must be after PATH change on Windows)
- 
+if sys.platform.startswith("win"):
+    vips_bin_dir = r"C:\bin\vips\bin"
+    os.environ["PATH"] = os.pathsep.join((vips_bin_dir, os.environ["PATH"]))
 
+import pyvips 
+ 
  # ----------------------------------------------------------------------------- 
  # Low-level reader - pull a *single* interleaved RGB Z/T plane 
  # ----------------------------------------------------------------------------- 

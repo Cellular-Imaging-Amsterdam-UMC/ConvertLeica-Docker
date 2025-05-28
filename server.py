@@ -14,6 +14,9 @@ MAX_XY_SIZE = 3192 # Maximum XY size of OME_Tiff files without pyramids
 PREVIEW_SIZE = 384 # Default preview size in pixels
 
 class SSEStream:
+    """
+    Server-Sent Events (SSE) stream helper for sending progress updates to the client.
+    """
     def __init__(self, wfile):
         self.wfile = wfile
         self.line_buffer = ""
@@ -43,6 +46,10 @@ class SSEStream:
         self.line_buffer = ""
 
 class MyHTTPRequestHandler(SimpleHTTPRequestHandler):
+    """
+    Custom HTTP request handler for the Leica conversion web server.
+    Handles API endpoints for listing files, previewing images, configuration, and conversion.
+    """
 
     def do_GET(self):
         parsed = urllib.parse.urlparse(self.path)

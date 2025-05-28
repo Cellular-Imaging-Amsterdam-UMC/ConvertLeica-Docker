@@ -3,12 +3,18 @@ import json
 import struct
 import xml.etree.ElementTree as ET
 from ParseLeicaImageXML import parse_image_xml
-import datetime
 from datetime import timezone # Import timezone
 
-# Helper function to convert Windows FILETIME to datetime
 def filetime_to_datetime(filetime):
-    """Converts a Windows FILETIME value (64-bit integer) to a Python datetime object (UTC)."""
+    """
+    Converts a Windows FILETIME value (64-bit integer) to a Python datetime object (UTC).
+
+    Args:
+        filetime (int): Windows FILETIME value (number of 100-nanosecond intervals since January 1, 1601 UTC).
+
+    Returns:
+        datetime.datetime or None: Corresponding UTC datetime object, or None if conversion fails.
+    """
     # FILETIME is the number of 100-nanosecond intervals since January 1, 1601 (UTC)
     EPOCH_AS_FILETIME = 116444736000000000  # January 1, 1970 as FILETIME
     HUNDREDS_OF_NANOSECONDS = 10000000
@@ -26,9 +32,14 @@ def filetime_to_datetime(filetime):
 def build_single_level_image_node(lifinfo, lif_base_name, parent_path):
     """
     Build a simple node (dictionary) for an image, including metadata.
-    
-    The 'save_child_name' is constructed as:
-      {lif_base_name}_{parent_folder_path}_{image_name}
+
+    Args:
+        lifinfo (dict): Dictionary with image information and metadata.
+        lif_base_name (str): Base name of the LIF file.
+        parent_path (str): Path representing the parent folder hierarchy inside the LIF file.
+
+    Returns:
+        dict: Node dictionary representing the image and its metadata.
     """
     image_name = lifinfo.get('name', lifinfo.get('Name', ''))
     
@@ -56,8 +67,18 @@ def build_single_level_image_node(lifinfo, lif_base_name, parent_path):
 def build_single_level_lif_folder_node(folder_element, folder_uuid, image_map, folder_map, parent_map, lif_base_name, parent_path=""):
     """
     Build a single-level dictionary node for a LIF folder (just immediate children).
-    
-    The parent_path keeps track of the hierarchy inside the LIF file.
+
+    Args:
+        folder_element (xml.etree.ElementTree.Element): XML element for the folder.
+        folder_uuid (str): UUID of the folder.
+        image_map (dict): Mapping of image UUIDs to image info.
+        folder_map (dict): Mapping of folder UUIDs to folder info.
+        parent_map (dict): Mapping of child UUIDs to parent UUIDs.
+        lif_base_name (str): Base name of the LIF file.
+        parent_path (str, optional): Path representing the parent folder hierarchy. Defaults to "".
+
+    Returns:
+        dict: Node dictionary representing the folder and its immediate children.
     """
     name = folder_element.attrib.get('Name', '')
     
@@ -108,6 +129,15 @@ def read_leica_lif(file_path, include_xmlelement=False, image_uuid=None, folder_
       - When a folder_uuid is provided: return only that folder and its first-level children.
       - Correctly builds 'save_child_name' using the LIF base name and full folder path.
       - Extracts Experiment name and datetime from the root XML and adds them to image metadata.
+
+    Args:
+        file_path (str): Path to the LIF file to be read.
+        include_xmlelement (bool, optional): Flag to include XML element data in the output. Defaults to False.
+        image_uuid (str, optional): UUID of a specific image to be extracted. If provided, only this image is returned. Defaults to None.
+        folder_uuid (str, optional): UUID of a specific folder to be extracted. If provided, only this folder and its children are returned. Defaults to None.
+
+    Returns:
+        str: JSON string representing the folder and image structure, or a specific image or folder if UUIDs are provided.
     """
     lif_base_name = os.path.splitext(os.path.basename(file_path))[0]  # Extract the LIF file base name
 

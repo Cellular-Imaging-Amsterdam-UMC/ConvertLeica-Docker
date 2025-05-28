@@ -5,11 +5,13 @@ import xml.etree.ElementTree as ET
 ###############################################################################
 def parse_image_xml(xml_element):
     """
-    Parses the XML element to extract image metadata like pixel sizes,
-    dimensions, color LUTs, channel names, etc.
+    Parses a Leica image XML element to extract image metadata such as pixel sizes, dimensions, color LUTs, channel names, and more.
+
+    Args:
+        xml_element (xml.etree.ElementTree.Element): XML element containing Leica image metadata.
 
     Returns:
-        A dictionary with the extracted metadata.
+        dict: Dictionary with extracted metadata fields (e.g., xs, ys, zs, channels, isrgb, resolutions, LUTs, etc.).
     """
 
     # with open(r"c:\xml.xml", "w") as f:

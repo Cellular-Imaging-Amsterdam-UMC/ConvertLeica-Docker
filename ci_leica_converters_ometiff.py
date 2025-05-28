@@ -8,6 +8,7 @@ from html import escape as escape_xml_chars  # More robust XML escaping
 import gc
 import re
 import math # Added for math.ceil
+import sys
 
 # Import helpers from the dedicated module
 from ci_leica_converters_helpers import (
@@ -20,13 +21,9 @@ from ci_leica_converters_helpers import (
     metadata_schema # This already contains the parsed schema
 )
 
-# -----------------------------------------------------------------------------
-# Optional: tell Windows where the vips binaries live before importing pyvips
-# -----------------------------------------------------------------------------
-
-
-vips_bin_dir = r"C:\bin\vips\bin"
-os.environ["PATH"] = os.pathsep.join((vips_bin_dir, os.environ["PATH"]))
+if sys.platform.startswith("win"):
+    vips_bin_dir = r"C:\bin\vips\bin"
+    os.environ["PATH"] = os.pathsep.join((vips_bin_dir, os.environ["PATH"]))
 
 import pyvips
 

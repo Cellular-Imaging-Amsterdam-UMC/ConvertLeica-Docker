@@ -11,7 +11,15 @@ EPOCH_AS_FILETIME = 116444736000000000  # January 1, 1970 as MS file time
 HUNDREDS_OF_NANOSECONDS = 10000000
 
 def filetime_to_datetime(filetime):
-    """Converts a Windows filetime value to a UTC datetime object."""
+    """
+    Converts a Windows filetime value to a UTC datetime object.
+
+    Args:
+        filetime (int): Windows filetime value (number of 100-nanosecond intervals since 1601-01-01 UTC).
+
+    Returns:
+        datetime.datetime or None: UTC datetime object, or None if conversion fails.
+    """
     if filetime < 0:
         return None
     # Convert filetime (100-nanosecond intervals since 1601-01-01 UTC) to datetime
@@ -33,14 +41,12 @@ def read_leica_lof(lof_file_path, include_xmlelement=False):
     """
     Reads a Leica LOF file and returns ONLY the dictionary from parse_image_xml.
 
-    - If include_xmlelement=True, the raw XML text is stored in the dictionary
-      under the key "xmlElement".
-    - Otherwise, no extra data is added.
-    - Extracts the experiment datetime from the XML or uses file creation time as fallback.
+    Args:
+        lof_file_path (str): Path to the .lof file.
+        include_xmlelement (bool, optional): If True, embed the raw XML in the returned dictionary. Defaults to False.
 
-    :param lof_file_path: Path to the .lof file.
-    :param include_xmlelement: If True, embed the raw XML in the returned dictionary.
-    :return: A dictionary from parse_image_xml(...) serialized as JSON.
+    Returns:
+        dict: Dictionary from parse_image_xml(...) serialized as JSON. Includes experiment datetime if available.
     """
     with open(lof_file_path, 'rb') as f:
         # 1) Read the first SNextBlock (8 bytes)
@@ -87,7 +93,7 @@ def read_leica_lof(lof_file_path, include_xmlelement=False):
         memory_size = struct.unpack('<Q', pHeader[offset+1:offset+9])[0]
         offset += 9
 
-        # Advance file pointer by memory_size
+        # Advance file pointer to skip memory_size
         f.seek(memory_size, os.SEEK_CUR)
 
         # 2) Read the second SNextBlock (real XML)

@@ -9,12 +9,13 @@ from ci_leica_converters_helpers import  read_image_metadata
 
 def convert_leica(inputfile='', image_uuid='n/a', show_progress=True, outputfolder=None, altoutputfolder=None, xy_check_value=3192):
     """
-    Wrapper function to convert Leica files based on metadata and specific rules.
+    Converts Leica LIF, LOF, or XLEF files to OME-TIFF, .LOF, or single-image .LIF based on metadata and specific rules.
 
     Args:
         inputfile (str): Path to the input LIF/LOF/XLEF file.
         image_uuid (str, optional): UUID of the image. Defaults to 'n/a'.
         show_progress (bool, optional): Enable progress bar during conversion. Defaults to True.
+        outputfolder (str, optional): Output directory for converted files. Defaults to None.
         altoutputfolder (str, optional): Optional alternative second output folder. Defaults to None.
         xy_check_value (int, optional): Threshold for XY dimensions to determine conversion type. Defaults to 3192.
 

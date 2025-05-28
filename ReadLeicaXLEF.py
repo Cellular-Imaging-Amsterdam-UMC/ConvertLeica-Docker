@@ -4,12 +4,18 @@ import xml.etree.ElementTree as ET
 from urllib.parse import unquote
 from collections import deque
 from ParseLeicaImageXML import parse_image_xml
-import datetime
 from datetime import timezone # Import timezone
 
-# Helper function to convert Windows FILETIME to datetime (copied from ReadLeicaLIF.py)
 def filetime_to_datetime(filetime):
-    """Converts a Windows FILETIME value (64-bit integer) to a Python datetime object (UTC)."""
+    """
+    Converts a Windows FILETIME value (64-bit integer) to a Python datetime object (UTC).
+
+    Args:
+        filetime (int): Windows FILETIME value (number of 100-nanosecond intervals since January 1, 1601 UTC).
+
+    Returns:
+        datetime.datetime or None: Corresponding UTC datetime object, or None if conversion fails.
+    """
     # FILETIME is the number of 100-nanosecond intervals since January 1, 1601 (UTC)
     EPOCH_AS_FILETIME = 116444736000000000  # January 1, 1970 as FILETIME
     HUNDREDS_OF_NANOSECONDS = 10000000
@@ -25,7 +31,15 @@ def filetime_to_datetime(filetime):
         return None
 
 def _extract_experiment_details(xml_root):
-    """Extracts experiment name and datetime from the XML root."""
+    """
+    Extracts experiment name and datetime from the XML root element.
+
+    Args:
+        xml_root (xml.etree.ElementTree.Element): Root XML element of the Leica file.
+
+    Returns:
+        tuple: (experiment_name, experiment_datetime_str) if found, else (None, None).
+    """
     experiment_name = None
     experiment_datetime_str = None
     try:
@@ -58,13 +72,14 @@ def _extract_experiment_details(xml_root):
 
 def read_leica_xlef(file_path, folder_uuid=None):
     """
-    Reads a Leica XLEF/.xlcf/.xlif file and attempts to:
-      - Return the entire top-level structure if no folder_uuid is specified, or
-      - Locate the requested folder_uuid in this file (and its references)
-        using a BFS approach.
-      - Includes experiment name and datetime from the root file.
+    Reads a Leica XLEF/.xlcf/.xlif file and returns the top-level structure or locates a requested folder_uuid.
 
-    Returns a JSON string containing the resulting dictionary.
+    Args:
+        file_path (str): Path to the XLEF file.
+        folder_uuid (str, optional): UUID of the folder to locate. If None, returns the top-level structure.
+
+    Returns:
+        str: JSON string containing the resulting dictionary with experiment details and structure.
     """
     file_path = os.path.normpath(file_path)
 
@@ -91,6 +106,18 @@ def read_leica_xlef(file_path, folder_uuid=None):
 
 
 def bfs_find_uuid(top_file, folder_uuid, root_experiment_name, root_experiment_datetime):
+    """
+    Performs a breadth-first search to locate a folder UUID in the XLEF file structure.
+
+    Args:
+        top_file (str): Path to the top-level XLEF file.
+        folder_uuid (str): UUID of the folder to find.
+        root_experiment_name (str): Name of the root experiment.
+        root_experiment_datetime (str): Datetime of the root experiment.
+
+    Returns:
+        dict or None: Dictionary representing the found folder node, or None if not found.
+    """
     if not os.path.exists(top_file):
         return None
 
@@ -140,6 +167,18 @@ def bfs_find_uuid(top_file, folder_uuid, root_experiment_name, root_experiment_d
 
 
 def parse_file_minimal(file_path):
+    """
+    Parses the given Leica file and retrieves the main element and references.
+
+    Args:
+        file_path (str): Path to the Leica file.
+
+    Returns:
+        tuple: (main_element, references_list, root_element) where:
+            - main_element (xml.etree.ElementTree.Element): The main Element node.
+            - references_list (list): List of tuples with (ref_path, ref_uuid, ref_ext) for each Reference.
+            - root_element (xml.etree.ElementTree.Element): The root element of the parsed XML.
+    """
     try:
         tree = ET.parse(file_path)
         root = tree.getroot()
@@ -163,6 +202,20 @@ def parse_file_minimal(file_path):
 
 
 def build_tree_for_element(ext, element, file_path, top_file, experiment_name, experiment_datetime):
+    """
+    Builds a metadata tree for the given element, including its children.
+
+    Args:
+        ext (str): File extension type (e.g., 'xlif', 'xlef', 'xlcf').
+        element (xml.etree.ElementTree.Element): The Element node to build the tree for.
+        file_path (str): Path to the Leica file.
+        top_file (str): Path to the top-level Leica file.
+        experiment_name (str): Name of the experiment.
+        experiment_datetime (str): Datetime of the experiment.
+
+    Returns:
+        dict: Metadata dictionary for the element, including children metadata.
+    """
     if ext == 'xlif':
         metadata = parse_image_xml(element)
         metadata['XLIFFile'] = file_path
@@ -189,6 +242,17 @@ def build_tree_for_element(ext, element, file_path, top_file, experiment_name, e
 
 
 def parse_top_level(file_path, root_experiment_name, root_experiment_datetime):
+    """
+    Parses the top-level structure of the Leica file, extracting the main element and its children.
+
+    Args:
+        file_path (str): Path to the Leica file.
+        root_experiment_name (str): Name of the root experiment.
+        root_experiment_datetime (str): Datetime of the root experiment.
+
+    Returns:
+        dict or None: Dictionary representing the top-level file structure, or None if parsing fails.
+    """
     if not os.path.exists(file_path):
         return None
 
@@ -216,6 +280,19 @@ def parse_top_level(file_path, root_experiment_name, root_experiment_datetime):
 
 
 def _build_children_list(element, base_file, top_file, experiment_name, experiment_datetime):
+    """
+    Builds a list of children metadata for the given element.
+
+    Args:
+        element (xml.etree.ElementTree.Element): The Element node to build children metadata for.
+        base_file (str): Base file path for resolving relative paths.
+        top_file (str): Top-level file path.
+        experiment_name (str): Name of the experiment.
+        experiment_datetime (str): Datetime of the experiment.
+
+    Returns:
+        list: List of dictionaries with metadata for each child element.
+    """
     children_list = []
     child_elem = element.find("Children")
     if child_elem is None:
@@ -286,6 +363,16 @@ def _build_children_list(element, base_file, top_file, experiment_name, experime
     return children_list
 
 def get_element_metadata(file_path, target_uuid=None):
+    """
+    Retrieves metadata for the specified element in the Leica file.
+
+    Args:
+        file_path (str): Path to the Leica file.
+        target_uuid (str, optional): UUID of the target element. If None, retrieves metadata for the first element.
+
+    Returns:
+        dict: Metadata dictionary for the element, including dimensions, channels, and file paths.
+    """
     if not os.path.exists(file_path):
         return {
             "ElementName": "Unnamed", "LOFFile": None, "filetype": None, # Added filetype
@@ -367,6 +454,16 @@ def get_element_metadata(file_path, target_uuid=None):
 
 
 def get_element_metadata_old(file_path, target_uuid=None):
+    """
+    Retrieves metadata for the specified element in the Leica file (old version).
+
+    Args:
+        file_path (str): Path to the Leica file.
+        target_uuid (str, optional): UUID of the target element. If None, retrieves metadata for the first element.
+
+    Returns:
+        dict: Metadata dictionary for the element, including dimensions and file paths.
+    """
     if not os.path.exists(file_path):
         return {"ElementName": "Unnamed", "LOFFile": None}
 
