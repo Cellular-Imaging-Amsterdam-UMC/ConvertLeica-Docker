@@ -51,11 +51,11 @@ pip install -r requirements.txt
 ```sh
 # Build the Docker image
 # (from the root of this repository)
-docker build -t convertleica .
+docker build -t convertleica-docker .
 
 # Run the container, mounting your data directory
 # (replace L:/data with your data path)
-docker run --rm -v "L:/data:/data" convertleica --inputfile /data/myfile.lif --outputfolder /data/.processed
+docker run --rm -v "L:/data:/data" convertleica-docker --inputfile /data/myfile.lif --outputfolder /data/.processed
 ```
 
 ---
