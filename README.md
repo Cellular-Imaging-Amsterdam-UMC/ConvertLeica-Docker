@@ -54,13 +54,32 @@ Install with:
 pip install -r requirements.txt
 ```
 
-#### Windows users: libvips binaries
+#### libvips binaries (required for all platforms)
 
-- On Windows, you must also install the native libvips binaries for pyvips to work:
-  1. Download the latest Windows libvips binary from [libvips releases](https://github.com/libvips/libvips/releases) (choose the latest `vips-dev-w64-all` zip file).
-  2. Extract to a folder, e.g., `C:\bin\vips`.
-  3. Add the `bin` subfolder (e.g., `C:\bin\vips\bin`) to your Windows PATH environment variable.
-  4. This project attempts to set the PATH for libvips automatically in `ci_leica_converters_ometiff.py` and `ci_leica_converters_ometiff_rgb.py`, defaulting to `C:\bin\vips\bin`. If you extract libvips elsewhere, update the PATH in those files or your system PATH accordingly.
+- **libvips** is required for pyvips to work. You must install the native libvips binaries on your system.
+
+##### Linux
+
+- Install libvips using your package manager. For example, on Ubuntu/Debian:
+
+  ```sh
+  sudo apt-get update && sudo apt-get install -y libvips-dev && sudo rm -rf /var/lib/apt/lists/*
+  ```
+
+##### macOS (not tested)
+
+- Install libvips using [Homebrew](https://brew.sh/):
+
+  ```sh
+  brew install vips
+  ```
+
+##### Windows
+
+- Download the latest Windows libvips binary from [libvips releases](https://github.com/libvips/libvips/releases) (choose the latest `vips-dev-w64-all` zip file).
+- Extract to a folder, e.g., `C:\bin\vips`.
+- Add the `bin` subfolder (e.g., `C:\bin\vips\bin`) to your Windows PATH environment variable.
+- This project attempts to set the PATH for libvips automatically in `ci_leica_converters_ometiff.py` and `ci_leica_converters_ometiff_rgb.py`, defaulting to `C:\bin\vips\bin`. If you extract libvips elsewhere, update the PATH in those files or your system PATH accordingly.
 
 ### (Optional) Build and run with Docker
 

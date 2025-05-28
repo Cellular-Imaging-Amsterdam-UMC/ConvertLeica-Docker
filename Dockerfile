@@ -6,7 +6,7 @@ FROM python:3.12-slim
 WORKDIR /app
 
 # Install system libvips (for vips support in Python) (Not used in this version, but can be uncommented if needed)
-# RUN apt-get update && apt-get install -y libvips-dev && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y libvips-dev && rm -rf /var/lib/apt/lists/*
 
 # Copy project files
 COPY requirements.txt /app/
