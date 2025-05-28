@@ -11,6 +11,7 @@ ConvertLeica-Docker is a toolset and web interface for converting Leica LIF, LOF
 - [Usage (Command Line)](#usage-command-line)
   - [Inputs](#inputs)
   - [Outputs](#outputs)
+  - [Function Output](#function-output-format)
   - [Conversion Scenarios](#conversion-scenarios)
   - [WSL/Windows Example Usage](#wslwindows-example-usage)
 - [Web Server & Local Website](#web-server--local-website)
