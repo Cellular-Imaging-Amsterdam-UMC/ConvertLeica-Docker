@@ -91,9 +91,9 @@ python main.py --inputfile <path-to-LIF/LOF/XLEF> --outputfolder <output-folder>
 
 ### Conversion Scenarios
 
-- **LIF file**: Most images are converted to OME-TIFF. If the image is a tilescan with negative overlap, a single-image .LIF is returned instead.
-- **LOF file**: Usually converted to OME-TIFF. If not needed, the original .LOF is returned.
-- **XLEF file**: RGB and multi-channel images are converted to OME-TIFF. Special cases (e.g., negative overlap or unsupported structure) may return the original file.
+- **LIF file**: RGB and multi-channel images are converted to OME-TIFF. If the image is a tilescan with negative overlap, a single-image .LIF is returned instead.
+- **LOF file**: RGB and multi-channel images are converted to OME-TIFF. If not needed, the original .LOF is returned.
+- **XLEF file**: RGB and multi-channel images are converted to OME-TIFF. Special cases (e.g., negative overlap or unsupported structure) may return the original LOF file.
 
 ### WSL/Windows Example Usage
 
@@ -114,6 +114,8 @@ status = convert_leica(
 )
 print(status)
 ```
+
+
 
 ---
 
@@ -148,8 +150,7 @@ python server.py
 ## Special Cases
 
 - **Tilescan with Negative Overlap (LIF)**: Instead of OME-TIFF, a single-image .LIF is returned
-- **Unsupported LOF/XLEF**: If conversion is not needed, the original file is returned
-- **RGB XLEF**: Converted to OME-TIFF using a dedicated RGB pipeline
+- **LOF/XLEF**: If conversion is not needed, the original LOF file is returned
 
 ---
 
