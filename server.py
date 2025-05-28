@@ -8,8 +8,10 @@ from CreatePreview import create_preview_base64_image
 from leica_converter import convert_leica
 import sys
 
+
 ROOT_DIR = "L:/Archief/active/cellular_imaging/OMERO_test"  # change as needed
 OUTPUT_SUBFOLDER = "_c"  # Output subfolder for converted files
+DEFAULT_PORT = 8000  # Default port for the server
 MAX_XY_SIZE = 3192 # Maximum XY size of OME_Tiff files without pyramids
 PREVIEW_SIZE = 384 # Default preview size in pixels
 
@@ -285,7 +287,7 @@ class MyHTTPRequestHandler(SimpleHTTPRequestHandler):
             "previewSize": PREVIEW_SIZE
         }).encode("utf-8"))
 
-def run(server_class=ThreadingHTTPServer, handler_class=MyHTTPRequestHandler, port=8000):
+def run(server_class=ThreadingHTTPServer, handler_class=MyHTTPRequestHandler, port=DEFAULT_PORT):
     server_address = ("", port)
     httpd = server_class(server_address, handler_class)
     print(f"Starting server on http://localhost:{port}")

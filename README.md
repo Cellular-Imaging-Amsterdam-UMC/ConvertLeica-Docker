@@ -42,17 +42,20 @@ ConvertLeica-Docker is a toolset and web interface for converting Leica LIF, LOF
 - [pip](https://pip.pypa.io/en/stable/)
 - (Optional) Docker for containerized usage
 
-#### Python packages (see `requirements.txt`):
+#### Python packages (see `requirements.txt`)
+
 - numpy==1.26.4
 - pyvips[binary]==2.2.2
 - opencv-python==4.9.0.80
 
 Install with:
+
 ```sh
 pip install -r requirements.txt
 ```
 
 #### Windows users: libvips binaries
+
 - On Windows, you must also install the native libvips binaries for pyvips to work:
   1. Download the latest Windows libvips binary from [libvips releases](https://github.com/libvips/libvips/releases) (choose the latest `vips-dev-w64-all` zip file).
   2. Extract to a folder, e.g., `C:\bin\vips`.
@@ -188,7 +191,7 @@ print(status)
 python server.py
 ```
 
-- The server will open a browser window to the local site (by default at http://localhost:8000/)
+- The server will open a browser window to the local site (by default at: `http://localhost:8000/`)
 - You can browse, preview, and convert files interactively.
 
 ### Browsing and Conversion
