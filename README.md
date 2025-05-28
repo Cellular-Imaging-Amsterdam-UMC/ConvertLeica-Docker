@@ -89,6 +89,48 @@ python main.py --inputfile <path-to-LIF/LOF/XLEF> --outputfolder <output-folder>
 - **.LOF**: Returned for certain LOF files or when conversion to OME-TIFF is not needed
 - **Single-image .LIF**: Returned for special cases (e.g., negative overlap tilescans)
 
+### Function Output Format
+
+The `convert_leica` function returns a **JSON array string** describing the conversion result(s). Each element in the array is a dictionary with:
+
+- `name`: base name of the created or relevant file (without extension)
+- `full_path`: absolute path to the output file (OME-TIFF, .LOF, or .LIF)
+- `alt_path`: absolute path to the file in `altoutputfolder` (if used and file exists), else `null`
+
+If no conversion is applicable or an error occurs, an empty JSON array string (`[]`) is returned.
+
+```json
+[
+    {
+        "name": "Image Name",   
+        "full_path": "File Path relative to the docker data volume (i.e. inputfile path)",
+        "alt_path": "File Path relative to the docker data volume (i.e. inputfile path)",
+        "keyvalues": [
+            {
+                "experiment_name": "Cells in mouse brain",
+                "experiment_date": "2025-05-01"
+            }
+        ]
+    }
+]
+```
+
+**Example function output:**
+
+```json
+[
+  {
+    "name": "Swiss Rolls GM1748 LEX277AD",
+    "full_path": "L:/Archief/active/cellular_imaging/OMERO_test/Leica-LIF/.processed/Swiss Rolls GM1748 LEX277AD.ome.tiff",
+    "alt_path": "U:/cc/Swiss Rolls GM1748 LEX277AD.ome.tiff"
+  }
+]
+```
+
+You can parse this output in Python using `json.loads()` to access the result programmatically.
+
+---
+
 ### Conversion Scenarios
 
 - **LIF file**: RGB and multi-channel images are converted to OME-TIFF. If the image is a tilescan with negative overlap, a single-image .LIF is returned instead.
@@ -160,48 +202,6 @@ python server.py
 - For Docker, ensure your data directory is mounted correctly
 - For large files, ensure sufficient disk space and memory
 - If you encounter errors, check the console output for details
-
----
-
-## Output Format
-
-The `convert_leica` function returns a **JSON array string** describing the conversion result(s). Each element in the array is a dictionary with:
-
-- `name`: base name of the created or relevant file (without extension)
-- `full_path`: absolute path to the output file (OME-TIFF, .LOF, or .LIF)
-- `alt_path`: absolute path to the file in `altoutputfolder` (if used and file exists), else `null`
-
-If no conversion is applicable or an error occurs, an empty JSON array string (`[]`) is returned.
-
-```json
-[
-    {
-        "name": "Image Name",   
-        "full_path": "File Path relative to the docker data volume (i.e. inputfile path)",
-        "alt_path": "File Path relative to the docker data volume (i.e. inputfile path)",
-        "keyvalues": [
-            {
-                "experiment_name": "Cells in mouse brain",
-                "experiment_date": "2025-05-01"
-            }
-        ]
-    }
-]
-```
-
-**Example output:**
-
-```json
-[
-  {
-    "name": "Swiss Rolls GM1748 LEX277AD",
-    "full_path": "L:/Archief/active/cellular_imaging/OMERO_test/Leica-LIF/.processed/Swiss Rolls GM1748 LEX277AD.ome.tiff",
-    "alt_path": "U:/cc/Swiss Rolls GM1748 LEX277AD.ome.tiff"
-  }
-]
-```
-
-You can parse this output in Python using `json.loads()` to access the result programmatically.
 
 ---
 
