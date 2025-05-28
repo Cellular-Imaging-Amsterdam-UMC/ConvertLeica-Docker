@@ -174,6 +174,7 @@ The `convert_leica` function returns a **JSON array string** describing the conv
 If no conversion is applicable or an error occurs, an empty JSON array string (`[]`) is returned.
 
 **Example output:**
+
 ```json
 [
   {
