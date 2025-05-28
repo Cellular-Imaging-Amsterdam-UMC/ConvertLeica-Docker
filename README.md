@@ -173,6 +173,22 @@ The `convert_leica` function returns a **JSON array string** describing the conv
 
 If no conversion is applicable or an error occurs, an empty JSON array string (`[]`) is returned.
 
+```json
+[
+    {
+        "name": "Image Name",   
+        "full_path": "File Path relative to the docker data volume (i.e. inputfile path)",
+        "alt_path": "File Path relative to the docker data volume (i.e. inputfile path)",
+        "keyvalues": [
+            {
+                "experiment_name": "Cells in mouse brain",
+                "experiment_date": "2025-05-01"
+            }
+        ]
+    }
+]
+```
+
 **Example output:**
 
 ```json
