@@ -91,7 +91,7 @@ python main.py --inputfile <path-to-LIF/LOF/XLEF> --outputfolder <output-folder>
 
 ### Function Output Format
 
-The `convert_leica` function returns a **JSON array string** describing the conversion result(s). Each element in the array is a dictionary with:
+The function returns a **JSON array string** describing the conversion result(s). Each element in the array is a dictionary with:
 
 - `name`: base name of the created or relevant file (without extension)
 - `full_path`: absolute path to the output file (OME-TIFF, .LOF, or .LIF)
