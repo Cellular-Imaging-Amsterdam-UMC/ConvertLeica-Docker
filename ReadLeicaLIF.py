@@ -4,6 +4,7 @@ import struct
 import xml.etree.ElementTree as ET
 from ParseLeicaImageXML import parse_image_xml
 from datetime import timezone # Import timezone
+import datetime
 
 def filetime_to_datetime(filetime):
     """

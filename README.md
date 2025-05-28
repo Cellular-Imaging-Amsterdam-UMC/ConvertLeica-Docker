@@ -19,8 +19,8 @@ ConvertLeica-Docker is a toolset and web interface for converting Leica LIF, LOF
   - [Browsing and Conversion](#browsing-and-conversion)
 - [Special Cases](#special-cases)
 - [Troubleshooting](#troubleshooting)
-- [Windows Users: libvips DLLs Required](#windows-users-libvips-dlls-required)
 - [License](#license)
+- [References](#references)
 
 ---
 
@@ -42,11 +42,22 @@ ConvertLeica-Docker is a toolset and web interface for converting Leica LIF, LOF
 - [pip](https://pip.pypa.io/en/stable/)
 - (Optional) Docker for containerized usage
 
-### Install Python dependencies
+#### Python packages (see `requirements.txt`):
+- numpy==1.26.4
+- pyvips[binary]==2.2.2
+- opencv-python==4.9.0.80
 
+Install with:
 ```sh
 pip install -r requirements.txt
 ```
+
+#### Windows users: libvips binaries
+- On Windows, you must also install the native libvips binaries for pyvips to work:
+  1. Download the latest Windows libvips binary from [libvips releases](https://github.com/libvips/libvips/releases) (choose the latest `vips-dev-w64-all` zip file).
+  2. Extract to a folder, e.g., `C:\bin\vips`.
+  3. Add the `bin` subfolder (e.g., `C:\bin\vips\bin`) to your Windows PATH environment variable.
+  4. This project attempts to set the PATH for libvips automatically in `ci_leica_converters_ometiff.py` and `ci_leica_converters_ometiff_rgb.py`, defaulting to `C:\bin\vips\bin`. If you extract libvips elsewhere, update the PATH in those files or your system PATH accordingly.
 
 ### (Optional) Build and run with Docker
 
@@ -159,8 +170,6 @@ status = convert_leica(
 print(status)
 ```
 
-
-
 ---
 
 ## Web Server & Local Website
@@ -205,18 +214,14 @@ python server.py
 - For large files, ensure sufficient disk space and memory
 - If you encounter errors, check the console output for details
 
-## Windows Users: libvips DLLs Required
-
-**Warning for Windows users:** The `pyvips` Python package requires the native libvips DLLs to be present on your system. These are not installed automatically by pip or conda. If you see errors like `No module named '_libvips'` or `cannot load library 'libgobject-2.0-0.dll'`, you need to:
-
-1. Download the latest Windows libvips binary from: https://github.com/libvips/libvips/releases (choose the latest `vips-dev-w64-all` zip file).
-2. Extract the zip file to a folder, e.g., `C:\bin\vips`.
-3. Add the `bin` subfolder (e.g., `C:\bin\vips\bin`) to your Windows PATH environment variable.
-
-> **Note:** This project attempts to set the PATH for libvips automatically in `ci_leica_converters_ometiff.py` and `ci_leica_converters_ometiff_rgb.py`, defaulting to `C:\bin\vips\bin`. If you extract libvips elsewhere, update the PATH in those files or your system PATH accordingly.
-
 ## License
 
 MIT License
 
+---
 
+### References
+
+- [NumPy](https://numpy.org/)
+- [pyvips](https://libvips.github.io/pyvips/)
+- [OpenCV (opencv-python)](https://pypi.org/project/opencv-python/)
