@@ -2,13 +2,16 @@ import os
 import json
 import urllib.parse
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
+import webbrowser
 from ci_leica_converters_helpers import read_leica_file,get_image_metadata,get_image_metadata_LOF
 from CreatePreview import create_preview_base64_image
 from leica_converter import convert_leica
-import threading
-import uuid
 import sys
-import traceback
+
+ROOT_DIR = "L:/Archief/active/cellular_imaging/OMERO_test"  # change as needed
+OUTPUT_SUBFOLDER = "_c"  # Output subfolder for converted files
+MAX_XY_SIZE = 3192 # Maximum XY size of OME_Tiff files without pyramids
+PREVIEW_SIZE = 384 # Default preview size in pixels
 
 class SSEStream:
     def __init__(self, wfile):
@@ -39,8 +42,6 @@ class SSEStream:
                 self.wfile = None
         self.line_buffer = ""
 
-ROOT_DIR = "L:/Archief/active/cellular_imaging/OMERO_test"  # change as needed
-
 class MyHTTPRequestHandler(SimpleHTTPRequestHandler):
 
     def do_GET(self):
@@ -48,10 +49,10 @@ class MyHTTPRequestHandler(SimpleHTTPRequestHandler):
         if parsed.path.startswith("/api/"):
             if parsed.path == "/api/list":
                 self.handle_list(parsed.query)
-            elif parsed.path == "/api/browse":
-                self.handle_browse(parsed.query)
             elif parsed.path == "/api/preview":
                 self.handle_preview(parsed.query)
+            elif parsed.path == "/api/config":
+                self.handle_config()
             else:
                 self.send_response(404)
                 self.end_headers()
@@ -67,8 +68,6 @@ class MyHTTPRequestHandler(SimpleHTTPRequestHandler):
             self.handle_lof_metadata()
         elif parsed.path == "/api/convert_leica":
             self.handle_convert_leica()
-        elif parsed.path == "/api/check_progress":
-            self.handle_check_progress()
         else:
             self.send_response(404)
             self.end_headers()
@@ -143,33 +142,6 @@ class MyHTTPRequestHandler(SimpleHTTPRequestHandler):
             self.send_header("Access-Control-Allow-Origin", "*")
             self.end_headers()
             self.wfile.write(json.dumps(response).encode("utf-8"))
-        except Exception as e:
-            self.send_error(500, str(e))
-
-    def handle_browse(self, query):
-        params = urllib.parse.parse_qs(query)
-        filePath = params.get("filePath", [None])[0]
-
-        if not filePath:
-            self.send_error(400, "Missing filePath parameter")
-            return
-
-        try:
-            result = read_leica_file(filePath)
-            try:
-                result_dict = json.loads(result)
-                out = json.dumps(result_dict)
-                content_type = "application/json"
-            except json.JSONDecodeError as e:
-                print(f"JSONDecodeError: {e}")
-                out = result
-                content_type = "text/plain"
-
-            self.send_response(200)
-            self.send_header("Content-type", content_type)
-            self.send_header("Access-Control-Allow-Origin", "*")
-            self.end_headers()
-            self.wfile.write(out.encode("utf-8"))
         except Exception as e:
             self.send_error(500, str(e))
 
@@ -260,7 +232,7 @@ class MyHTTPRequestHandler(SimpleHTTPRequestHandler):
             sys.stdout = sse
 
             # determine output folder
-            outdir = os.path.join(os.path.dirname(inp), "_c")
+            outdir = os.path.join(os.path.dirname(inp), OUTPUT_SUBFOLDER)
             os.makedirs(outdir, exist_ok=True)
 
             # call converter
@@ -294,52 +266,23 @@ class MyHTTPRequestHandler(SimpleHTTPRequestHandler):
                 self.wfile.write(f"data: {json.dumps({'type':'end'})}\n\n".encode())
                 self.wfile.flush()
 
-    def handle_check_progress(self):
-        """
-        API endpoint to check the progress of a task.
-        
-        Accepts a POST request with a JSON body containing:
-        - task_id: The UUID of the export task to check
-        
-        Returns a JSON response with:
-        - success: Boolean indicating if the request was processed successfully
-        - progress_info: Object containing current progress status, percentage, and messages
-        """
-        content_length = int(self.headers['Content-Length'])
-        post_data = self.rfile.read(content_length)
-        try:
-            data = json.loads(post_data.decode('utf-8'))
-            task_id = data.get("task_id")
-            
-            if not task_id:
-                response = {"success": False, "error": "Missing task_id parameter"}
-                self.send_response(400)
-            else:
-                # Only check the LIF conversion progress dictionary
-                from CreateSingleImageLIF import conversion_progress as lif_progress
-                # Removed QPTIFF progress tracking
-                # from CreateQPTIFF import conversion_progress as qptiff_progress
-                
-                # Only check lif_progress for the task_id
-                if task_id in lif_progress:
-                    progress_info = lif_progress[task_id]
-                else:
-                    progress_info = {"progress": 0, "status": "unknown", "message": "Task not found"}
-                
-                response = {"success": True, "progress_info": progress_info}
-                self.send_response(200)
-            
-            self.send_header("Content-type", "application/json")
-            self.send_header("Access-Control-Allow-Origin", "*")
-            self.end_headers()
-            self.wfile.write(json.dumps(response).encode("utf-8"))
-        except Exception as e:
-            self.send_error(500, str(e))
+    def handle_config(self):
+        # return ROOT_DIR and constants to client
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.end_headers()
+        self.wfile.write(json.dumps({
+            "rootDir": ROOT_DIR,
+            "maxXYSize": MAX_XY_SIZE,
+            "previewSize": PREVIEW_SIZE
+        }).encode("utf-8"))
 
 def run(server_class=ThreadingHTTPServer, handler_class=MyHTTPRequestHandler, port=8000):
     server_address = ("", port)
     httpd = server_class(server_address, handler_class)
     print(f"Starting server on http://localhost:{port}")
+    webbrowser.open(f"http://localhost:{port}")  # launch default browser
     httpd.serve_forever()
 
 if __name__ == "__main__":

@@ -75,6 +75,8 @@ a:hover {
     padding: 10px;
     border-top: 1px solid #444;
     margin-top: 10px;
+    display: flex;
+    align-items: center;
 }
 #convertLeicaButton {
     background-color: #3794ff;
@@ -106,4 +108,21 @@ a:hover {
 #conversionProgressOutput p { /* Style for individual progress lines */
     margin: 0 0 5px 0; /* Add a little space between lines */
     word-break: break-all; /* Break long lines if necessary */
+}
+
+/* Toggle checkboxes next to Convert Image button */
+.toggle-container {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5em;
+    margin-left: auto;
+}
+.toggle-container label {
+    font-size: 0.9em;
+    cursor: pointer;
+}
+.toggle-container input[type="checkbox"] {
+    width: 1em;
+    height: 1em;
+    cursor: pointer;
 }

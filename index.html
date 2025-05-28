@@ -26,22 +26,27 @@
             <div id="metadataDisplay"></div>
         </div>
     </div>
-    <div id="folderMetadataContainer">
-        <h3>Folder/Image Metadata</h3>
-        <pre id="folderMetadata"></pre>
-    </div>
     <div id="actionButtonsContainer">
         <button id="convertLeicaButton">Convert Image</button>
-        <span id="exportStatus"></span>
-        <div id="conversionProgressOutput"></div>    <!-- new -->
+        <div class="toggle-container">
+          <label><input type="checkbox" id="showFolderMetaChk"> Show Folder Metadata</label>
+          <label><input type="checkbox" id="showImageMetaChk"> Show Image Metadata</label>
+        </div>
+    </div>
+    <div><span id="exportStatus"></span></div>
+    <div id="conversionProgressOutput"></div>
+    <div id="folderMetadataContainer">
+        <h3 id="metadataTitle"></h3>
+        <pre id="folderMetadata"></pre>
     </div>
     <script>
-        const ROOT_DIR = "L:/Archief/active/cellular_imaging/OMERO_test";
+        // Remove hardcoded ROOT_DIR, fetch from backend
+        let ROOT_DIR = null;
         const API_BASE = "http://localhost:8000/api";
-        const SHOW_FOLDERMETADATA = false; // Toggle to show/hide folder metadata
-        const SHOW_IMAGEMETADATA = false; // Toggle to show/hide image metadata
-        const MAX_XY_SIZE = 4096;
-        const PREVIEW_SIZE = 384;
+        let SHOW_FOLDERMETADATA = false; // Toggle to show/hide folder metadata
+        let SHOW_IMAGEMETADATA = false; // Toggle to show/hide image metadata
+        let MAX_XY_SIZE = null;
+        let PREVIEW_SIZE = null;
 
         // Add these two variables for tracking current image selection
         let currentImageUuid = null;
@@ -55,6 +60,8 @@
         // Store the breadcrumb history
         let breadcrumbHistory = [];
         let currentFolderMetadata = null;  // Store folder_metadata
+        let currentDir = null, currentFolderUuid = null, currentFolderName = null;
+        let lastPreviewItem = null;
 
         // Updated buildBreadcrumb to render using breadcrumbHistory entries.
         function buildBreadcrumb() {
@@ -169,8 +176,7 @@
         }
 
         async function loadDir(dir, folder_uuid = null, folderName = null) {
-            // Set a default folder name if none is provided.
-            folderName = folderName || dir.split(/[\/\\]/).pop();
+           currentDir = dir; currentFolderUuid = folder_uuid; currentFolderName = folderName || dir.split(/[\/\\]/).pop();
             // If the folder_uuid equals the folder's name, treat it as a normal folder.
             if (folder_uuid === folderName) {
                 folder_uuid = null;
@@ -210,8 +216,10 @@
             // Set default preview image and clear metadata
             document.getElementById("previewImage").src = "preview.png";
             document.getElementById("imageNameDisplay").innerText = "";
-            document.getElementById("imageUuidDisplay").innerText = ""; // Add this line
+            document.getElementById("imageUuidDisplay").innerText = "";
             document.getElementById("metadataDisplay").innerHTML = "";
+            // Always hide convertLeicaButton when loading a new directory
+            document.getElementById("convertLeicaButton").style.display = "none";
 
             const folderItems = [];
             const fileItems = [];
@@ -239,8 +247,9 @@
 
             // Display folder metadata
             const folderMetadataContainer = document.getElementById("folderMetadataContainer");
-            const folderMetadataDisplay = document.getElementById("folderMetadata");
+            const folderMetadataDisplay  = document.getElementById("folderMetadata");
             if (SHOW_FOLDERMETADATA && currentFolderMetadata) {
+                document.getElementById("metadataTitle").innerText = "Folder Metadata";
                 // Format the JSON data into HTML
                 const formattedMetadata = JSON.stringify(JSON.parse(currentFolderMetadata), null, 2);
                 folderMetadataDisplay.textContent = formattedMetadata;
@@ -250,7 +259,7 @@
             }
         }
 
-        // Modify the loadPreview function to update currentImageUuid and currentFilePath
+        // LoadPreview function to updates currentImageUuid and currentFilePath
         // and show/hide the export button
         async function loadPreview(item) {
             // Store current image information for export
@@ -312,17 +321,19 @@
 
                 const convertLeicaButton = document.getElementById("convertLeicaButton");
 
-                // Show the convertLeicaButton only for images inside LIF files
-                if (item.path.toLowerCase().endsWith('.lif') && item.uuid) {
+                // Show the convertLeicaButton for all supported file types
+                // (allowed is defined above in this function: ["lif","xlef","lof"])
+                if (allowed.includes(ext)) {
                     convertLeicaButton.style.display = "inline-block";
                 } else {
                     convertLeicaButton.style.display = "none";
                 }
 
-                // Display image metadata in the folder metadata container
+                // Display image metadata in the metadata container
                 const folderMetadataContainer = document.getElementById("folderMetadataContainer");
-                const folderMetadataDisplay = document.getElementById("folderMetadata");
+                const folderMetadataDisplay  = document.getElementById("folderMetadata");
                 if (SHOW_IMAGEMETADATA) {
+                    document.getElementById("metadataTitle").innerText = "Image Metadata";
                     const formattedMetadata = JSON.stringify(JSON.parse(data.metadata), null, 2);
                     folderMetadataDisplay.textContent = formattedMetadata;
                     folderMetadataContainer.style.display = "block";
@@ -337,7 +348,7 @@
             }
         }
 
-        // New function to update displayed metadata using image_metadata.
+        // Function to update displayed metadata using image_metadata.
         function updateMetadata(metaString) {
             if (!metaString) return;
             let meta;
@@ -381,7 +392,6 @@
             document.getElementById("metadataDisplay").innerHTML = text;
         }
 
-        // Now, in your export button click handler, replace the polling code with:
         document.getElementById('convertLeicaButton').addEventListener('click', async () => {
             if (!currentFilePath || (!currentFilePath.endsWith('.lof') && !currentImageUuid)) {
                 alert('No image selected'); return;
@@ -442,8 +452,42 @@
             }
         });
 
-        // Initial load using ROOT_DIR.
-        loadDir(normalizePath(ROOT_DIR));
+        // Initial load: fetch ROOT_DIR and constants from backend, then loadDir
+        async function initializeApp() {
+            try {
+                const res = await fetch(`${API_BASE}/config`);
+                const data = await res.json();
+                ROOT_DIR = data.rootDir;
+                MAX_XY_SIZE = data.maxXYSize;
+                PREVIEW_SIZE = data.previewSize;
+                currentDir = normalizePath(ROOT_DIR);
+                // Hide convertLeicaButton at startup
+                document.getElementById("convertLeicaButton").style.display = "none";
+                loadDir(currentDir);
+            } catch (e) {
+                alert("Failed to fetch ROOT_DIR from backend.");
+            }
+        }
+
+        initializeApp();
+
+        // initialize toggles
+        const folderChk = document.getElementById('showFolderMetaChk');
+        const imageChk  = document.getElementById('showImageMetaChk');
+        folderChk.checked = SHOW_FOLDERMETADATA;
+        imageChk.checked  = SHOW_IMAGEMETADATA;
+        
+        folderChk.addEventListener('change', () => {
+          SHOW_FOLDERMETADATA = folderChk.checked;
+          // re-load current folder to show/hide folder metadata
+          loadDir(currentDir, currentFolderUuid, currentFolderName);
+        });
+        
+        imageChk.addEventListener('change', () => {
+          SHOW_IMAGEMETADATA = imageChk.checked;
+          // re-load preview to show/hide image metadata
+          if (lastPreviewItem) loadPreview(lastPreviewItem);
+        });
     </script>
 </body>
 </html>
