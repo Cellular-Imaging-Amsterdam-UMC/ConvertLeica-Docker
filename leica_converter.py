@@ -17,15 +17,13 @@ def convert_leica(inputfile='', image_uuid='n/a', show_progress=True, outputfold
         show_progress (bool, optional): Enable progress bar during conversion. Defaults to True.
         altoutputfolder (str, optional): Optional alternative second output folder. Defaults to None.
         xy_check_value (int, optional): Threshold for XY dimensions to determine conversion type. Defaults to 3192.
-        perform_3d_projection (bool, optional): If True, project large 3D images during QPTIFF conversion. 
-                                                If False, large 3D LIFs become single LIFs, large 3D LOF/XLEFs are not converted. Defaults to False.
-                                                Recommended to set to True for large 3D images.
 
     Returns:
-        tuple: (conversion_status, filename, directory_path)
-               - conversion_status (bool): True if a conversion was performed, False otherwise.
-               - filename (str or None): Base name of the created/relevant file.
-               Returns (False, None) if no conversion is applicable or an error occurs.
+        str: JSON array string with conversion results. Each element is a dict with keys:
+            - name: base name of the created or relevant file (without extension)
+            - full_path: absolute path to the output file (OME-TIFF, .LOF, or .LIF)
+            - alt_path: absolute path to the file in altoutputfolder (if used and file exists), else None
+        Returns an empty JSON array string ("[]") if no conversion is applicable or an error occurs.
     """
     created_filename = None
 

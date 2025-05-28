@@ -163,6 +163,31 @@ python server.py
 
 ---
 
+## Output Format
+
+The `convert_leica` function returns a **JSON array string** describing the conversion result(s). Each element in the array is a dictionary with:
+
+- `name`: base name of the created or relevant file (without extension)
+- `full_path`: absolute path to the output file (OME-TIFF, .LOF, or .LIF)
+- `alt_path`: absolute path to the file in `altoutputfolder` (if used and file exists), else `null`
+
+If no conversion is applicable or an error occurs, an empty JSON array string (`[]`) is returned.
+
+**Example output:**
+```json
+[
+  {
+    "name": "Swiss Rolls GM1748 LEX277AD",
+    "full_path": "L:/Archief/active/cellular_imaging/OMERO_test/Leica-LIF/.processed/Swiss Rolls GM1748 LEX277AD.ome.tiff",
+    "alt_path": "U:/cc/Swiss Rolls GM1748 LEX277AD.ome.tiff"
+  }
+]
+```
+
+You can parse this output in Python using `json.loads()` to access the result programmatically.
+
+---
+
 ## License
 
 MIT License
