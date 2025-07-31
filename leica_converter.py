@@ -50,7 +50,7 @@ def convert_leica(inputfile='', image_uuid='n/a', show_progress=True, outputfold
         if filetype == ".lif":
             if tiles>1 and overlap_is_negative:
                 if show_progress:
-                    print(f"  Detected if Tilescan with OverlapIsNegative. Calling convert_leica_to_singlelif...")
+                    print(f"  Detected a Tilescan with OverlapIsNegative. Calling convert_leica_to_singlelif...")
                 created_filename = convert_leica_to_singlelif(
                     inputfile=inputfile,
                     image_uuid=image_uuid,
@@ -91,7 +91,7 @@ def convert_leica(inputfile='', image_uuid='n/a', show_progress=True, outputfold
                         altoutputfolder=altoutputfolder
                     )
                 else:
-                    if show_progress: print(f"  Detected (Multi/Single)Channel LIF. Calling convert_leica_to_ometiff...")
+                    if show_progress: print(f"  Detected (Multi/Single) Channel LIF. Calling convert_leica_to_ometiff...")
                     created_filename = convert_leica_to_ometiff(
                         inputfile=inputfile,
                         image_uuid=image_uuid,
