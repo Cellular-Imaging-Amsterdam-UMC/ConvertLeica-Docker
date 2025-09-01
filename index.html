@@ -343,6 +343,21 @@
                     let meta = {}; try { meta = JSON.parse(lastMetaStr); } catch {}
                     document.getElementById('imageNameDisplay').innerText = meta.save_child_name || '';
                     updateMetadata(lastMetaStr);
+                    // Also show full image metadata JSON if toggle is on
+                    const folderMetadataContainer = document.getElementById("folderMetadataContainer");
+                    const folderMetadataDisplay  = document.getElementById("folderMetadata");
+                    if (SHOW_IMAGEMETADATA) {
+                        document.getElementById("metadataTitle").innerText = "Image Metadata";
+                        try {
+                            const formattedMetadata = JSON.stringify(JSON.parse(lastMetaStr), null, 2);
+                            folderMetadataDisplay.textContent = formattedMetadata;
+                            folderMetadataContainer.style.display = "block";
+                        } catch {
+                            folderMetadataContainer.style.display = "none";
+                        }
+                    } else {
+                        folderMetadataContainer.style.display = "none";
+                    }
                     return;
                 }
 
@@ -365,6 +380,21 @@
                     let meta = {}; try { meta = JSON.parse(lastMetaStr); } catch {}
                     document.getElementById('imageNameDisplay').innerText = meta.save_child_name || '';
                     updateMetadata(lastMetaStr);
+                    // Also show full image metadata JSON if toggle is on
+                    const folderMetadataContainer = document.getElementById("folderMetadataContainer");
+                    const folderMetadataDisplay  = document.getElementById("folderMetadata");
+                    if (SHOW_IMAGEMETADATA) {
+                        document.getElementById("metadataTitle").innerText = "Image Metadata";
+                        try {
+                            const formattedMetadata = JSON.stringify(JSON.parse(lastMetaStr), null, 2);
+                            folderMetadataDisplay.textContent = formattedMetadata;
+                            folderMetadataContainer.style.display = "block";
+                        } catch {
+                            folderMetadataContainer.style.display = "none";
+                        }
+                    } else {
+                        folderMetadataContainer.style.display = "none";
+                    }
                     return;
                 }
 

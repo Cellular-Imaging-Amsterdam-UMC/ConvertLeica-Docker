@@ -528,8 +528,8 @@ class ConvertLeicaApp(QMainWindow):
                     lof_like["save_child_name"] = image_metadata_f["save_child_name"]
                 meta = lof_like
             else:
-                # LIF: use get_image_metadata for selected image
-                meta = json.loads(get_image_metadata(folder_meta, uuid))
+                # LIF: fetch full metadata for preview (includes Position, LUTs, etc.)
+                meta = json.loads(read_leica_file(self.current_file, image_uuid=uuid))
 
             # Start progressive previews (16 → 32 → 64 → 128 → 256 → 384)
             self._start_progressive_preview(meta)
@@ -785,6 +785,12 @@ class ConvertLeicaApp(QMainWindow):
         children = meta.get("children", [])
         for ch in children:
             name = ch.get("name", "") or ch.get("ElementName", "")
+            # Apply same filtering rules as filesystem tree
+            low = name.lower()
+            if ("metadata" in low or "_pmd_" in low or "_histo" in low or
+                "_environmetalgraph" in low or low.endswith(".lifext") or
+                low in ("iomanagerconfiguation", "iomanagerconfiguration")):
+                continue
             uuid = ch.get("uuid") or ""
             ctype = (ch.get("type") or "").lower()
             filetype = ch.get("filetype") or ""

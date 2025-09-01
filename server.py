@@ -15,8 +15,8 @@ ROOT_DIR = "L:/Archief/active/cellular_imaging/OMERO_test"  # change as needed
 OUTPUT_SUBFOLDER = "_c"  # Output subfolder for converted files
 DEFAULT_PORT = 8000  # Default port for the server
 MAX_XY_SIZE = 3192 # Maximum XY size of OME_Tiff files without pyramids
-PREVIEW_SIZE = 256 # Default preview size in pixels
-PREVIEW_STEPS = [24, 112, 256]  # Progressive preview steps
+PREVIEW_SIZE = 200 # Default preview size in pixels
+PREVIEW_STEPS = [24, 100, 200]  # Progressive preview steps
 PREVIEW_CACHE_MAX = 500  # Maximum number of cached previews
 
 def get_cache_dir():
@@ -119,7 +119,7 @@ class MyHTTPRequestHandler(SimpleHTTPRequestHandler):
                             name = child.get("name", "").lower()
                             if ("_environmentalgraph" in name or 
                                 name.endswith(".lifext") or 
-                                name in ["iomanagerconfiguation", "iomanagerconfiguration"]):
+                                name.lower in ["iomanagerconfiguation", "iomanagerconfiguration", "IOManagerConfiguation"]):
                                 continue
                             if "path" not in child:
                                 child["path"] = directory
@@ -208,7 +208,8 @@ class MyHTTPRequestHandler(SimpleHTTPRequestHandler):
                     image_metadata["save_child_name"] = image_metadata_f["save_child_name"]
                 image_metadata = json.dumps(image_metadata)  # Convert back to JSON string
             else:
-                image_metadata = get_image_metadata(folder_metadata, image_uuid)
+                # For .lif, fetch full metadata (includes Position, bytes offsets, etc.)
+                image_metadata = read_leica_file(filePath, image_uuid=image_uuid)
             # Use server-side cache to create or reuse preview file, then return base64
             cache_dir = get_cache_dir()
             # Detect whether this preview already exists in cache (for client hint)
