@@ -2,50 +2,134 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Convert Leica — Help</title>
   <style>
-    body { background:#222; color:#eee; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; }
-    a { color:#6bb6ff; }
-    code, pre { background:#111; color:#ddd; padding:2px 4px; border-radius:4px; }
-    h1,h2,h3 { color:#fff; }
-    .box { background:#2c2c2c; border:1px solid #444; border-radius:8px; padding:12px; margin:12px 0; }
+    :root {
+      --bg: #222;
+      --panel: #2c2c2c;
+      --text: #eee;
+      --muted: #bdbdbd;
+      --border: #444;
+      --code-bg: #111;
+      --link: #6bb6ff;
+      --accent: #2a82da;
+    }
+    body { background:var(--bg); color:var(--text); font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; line-height:1.5; }
+    a { color:var(--link); text-decoration:none; }
+    h1,h2,h3 { color:#fff; margin: 0.6em 0 0.4em; }
+    p { margin: 0.4em 0; }
+    ul, ol { margin: 0.3em 0 0.9em 1.4em; }
+    code, pre { background:var(--code-bg); color:#ddd; padding:2px 6px; border-radius:6px; }
+    pre { padding:10px 12px; overflow:auto; }
+    .box { background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:14px 16px; margin:14px 0; }
     .kbd { background:#333; border:1px solid #555; border-bottom-width:3px; border-radius:6px; padding:1px 6px; }
+    .cols { display:grid; grid-template-columns: 1fr 1fr; gap:14px; }
+    .small { color: var(--muted); font-size: 0.95em; }
+    .pill { display:inline-block; padding:2px 8px; border:1px solid var(--border); border-radius:999px; background:#333; color:#ddd; font-size:12px; }
+    .hint { border-left:3px solid var(--accent); padding-left:10px; margin:10px 0; color:#e8f0ff; }
   </style>
-</head>
+  </head>
 <body>
   <h1>Convert Leica — Desktop GUI</h1>
-  <p>This app lets you browse folders, open Leica files (.lif, .xlef, .lof), preview images, and convert a selected image to OME‑TIFF using the same logic as the web server.</p>
+  <p>
+    The desktop app (ConvertLeicaQT.py) lets you browse folders, open Leica files (<code>.lif</code>, <code>.xlef</code>, <code>.lof</code>), preview images, and convert a selected image to OME‑TIFF. It uses the same core readers/converters as the web server, with a fast, lazy listing for large LIFs and progressive preview generation.
+  </p>
 
   <div class="box">
-    <h2>Workflow</h2>
+    <h2>Quick start</h2>
     <ol>
-      <li>Click <span class="kbd">Browse…</span> to choose a root folder.</li>
-      <li>Double‑click a folder to drill down, or double‑click a Leica file to load its images.</li>
-      <li>Select an image in the right panel to see a preview (center Z/time/tile).</li>
-      <li>Choose an output folder (defaults to <code>_c</code> next to the file).</li>
-      <li>Click <strong>Convert selected image → OME‑TIFF</strong>.</li>
+      <li>Click <span class="kbd">Browse…</span> to pick your root folder.</li>
+      <li>Double‑click folders to navigate, or double‑click a Leica file to load its contents.</li>
+      <li>Select an image in the right panel to show a preview (center Z/T/tile).</li>
+      <li>Choose an output folder (defaults to <code>_c</code> next to the Leica file).</li>
+      <li>Click <strong>Convert selected image → OME‑TIFF</strong> to export.</li>
     </ol>
+    <p class="small">Tip: The app reuses a temp preview cache so repeated previews are instant.</p>
   </div>
 
   <div class="box">
-    <h2>Notes</h2>
+    <h2>Interface tour</h2>
+    <div class="cols">
+      <div>
+        <h3>Left pane — Folders and Leica files</h3>
+        <ul>
+          <li>Shows your filesystem starting from the selected root.</li>
+          <li>Filters noisy entries (e.g. <code>*.lifext</code>, environmental graphs) just like the web UI.</li>
+          <li>Double‑click a <code>.lif</code>, <code>.xlef</code>, or <code>.lof</code> to load it in the right pane.</li>
+        </ul>
+      </div>
+      <div>
+        <h3>Right pane — Contents and Preview</h3>
+        <ul>
+          <li><strong>Contents tree:</strong> Lists folders/images inside the selected Leica file. Expands lazily for speed.</li>
+          <li><strong>Preview:</strong> Displays a progressively scaled preview. Small images may jump straight to the final size.</li>
+          <li><strong>Metadata panel:</strong> Shows a concise summary (dimensions, voxel size, pixel type, etc.).</li>
+          <li><strong>Log:</strong> Prints conversion progress and messages.</li>
+        </ul>
+      </div>
+    </div>
     <ul>
-      <li>Preview uses existing repository helpers to read metadata and extract a quick slice.</li>
-      <li>Conversion calls <code>convert_leica()</code>, which decides whether to create an OME‑TIFF or return an existing LOF/single‑LIF depending on size and settings.</li>
-      <li>Progress messages appear in the log at the bottom.</li>
-      <li>Filtering of noisy entries (e.g., <code>*.lifext</code>, environmental graphs) matches the server behavior.</li>
+      <li>
+        <span class="pill">Folder JSON</span> shows the JSON for the selected folder (or file root).
+      </li>
+      <li>
+        <span class="pill">Image JSON</span> shows the metadata JSON for the currently selected image.
+      </li>
+    </ul>
+  </div>
+
+  <div class="box">
+    <h2>Supported files and behavior</h2>
+    <ul>
+      <li><strong>.lif</strong> — Top‑level and folder listings are fast (shallow); full metadata is read only when an image is selected for preview or conversion.</li>
+      <li><strong>.xlef</strong> — May link to <code>.lof</code> files; the app resolves linked images and merges the minimal fields needed for preview.</li>
+      <li><strong>.lof</strong> — Treated as a single image entry; selection immediately enables preview and conversion.</li>
+    </ul>
+    <p class="small">All readers share filtering to hide non‑image or internal items.</p>
+  </div>
+
+  <div class="box">
+    <h2>Previews</h2>
+    <ul>
+      <li><strong>Progressive steps:</strong> The app attempts small → medium → large preview heights. If the largest size is cached or the image is small (≤ 2048×2048), it fetches only the final preview.</li>
+      <li><strong>Center selection:</strong> Uses the center Z slice, timepoint, and tile for a representative preview.</li>
+      <li><strong>Colors (LUT):</strong> When explicit LUT names are missing, the app applies a safe default cycle (green, magenta, cyan, …) per channel.</li>
+      <li><strong>Caching:</strong> Previews are written to your temp folder (e.g., <code>%TEMP%/leica_preview_cache</code>) and reused by both the desktop app and the web server.</li>
+    </ul>
+    <div class="hint small">If you don’t see an update, wait a second — images are decoded and painted asynchronously for a responsive UI.</div>
+  </div>
+
+  <div class="box">
+    <h2>Conversion</h2>
+    <ul>
+      <li>Click <strong>Convert selected image → OME‑TIFF</strong> to export the current image.</li>
+      <li>Output goes to the chosen folder (defaults to <code>_c</code> next to the original file).</li>
+      <li><em>Only convert LOF files with XY &gt;</em> lets you set a pixel threshold; images smaller than this can be passed through instead of pyramid‑tiled.</li>
+      <li>Progress is streamed to the log; success shows the final output path(s).</li>
+    </ul>
+  </div>
+
+  <div class="box">
+    <h2>Tips & Notes</h2>
+    <ul>
+      <li><strong>Fast LIF browsing:</strong> Large LIFs open quickly because only necessary metadata is parsed until you click an image.</li>
+      <li><strong>Shared cache:</strong> Preview cache is shared between this desktop app and the web server for instant re‑use.</li>
+      <li><strong>Filters:</strong> Internal items like <code>*.lifext</code>, environmental graphs, and manager configs are hidden in both the filesystem and image trees.</li>
+      <li><strong>Metadata buttons:</strong> Use <em>Folder JSON</em> and <em>Image JSON</em> to inspect raw metadata when troubleshooting.</li>
     </ul>
   </div>
 
   <div class="box">
     <h2>Troubleshooting</h2>
     <ul>
-      <li>If previews fail, verify the input files are accessible and not locked by another program.</li>
-      <li>Make sure dependencies from <code>requirements.txt</code> are installed.</li>
-      <li>Large images may take time to preview/convert; watch the log for progress.</li>
+      <li><strong>No preview:</strong> Ensure the file is readable and not locked; very large images may take a moment on first load.</li>
+      <li><strong>“Preview error: …”</strong> — Check the log. If persistent, open <em>Image JSON</em> and verify fields like dimensions exist; report the error and a sample if possible.</li>
+      <li><strong>Missing colors/LUTs:</strong> The app falls back to a default color cycle when LUT names are absent; this does not affect conversion.</li>
+      <li><strong>Dependencies:</strong> Make sure packages from <code>requirements.txt</code> are installed (Qt, numpy, OpenCV, etc.).</li>
     </ul>
   </div>
 
-  <p>Questions or bugs? Open an issue in your repository or check the console output for details.</p>
+  <p class="small">Have feedback or issues? Check the console/log output and open an issue with details (file type, steps, and errors).</p>
 </body>
 </html>

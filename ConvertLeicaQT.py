@@ -24,6 +24,7 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtGui import QIcon, QPixmap, QPalette, QColor
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
+import traceback
 from datetime import datetime
 
 # Internal helpers from the repo
@@ -159,7 +160,12 @@ class PreviewWorker(QThread):
                         max_cache_size=self.max_cache_size,
                     )
                 except Exception as e:  # noqa: BLE001
-                    self.error.emit(self.job_id, str(e))
+                    # Send full traceback with file and line numbers
+                    try:
+                        tb = traceback.format_exc()
+                    except Exception:
+                        tb = f"{type(e).__name__}: {e}"
+                    self.error.emit(self.job_id, tb)
                     break
                 # Deliver to UI
                 self.previewReady.emit(self.job_id, int(h), cached_png)
@@ -167,7 +173,11 @@ class PreviewWorker(QThread):
                 if self.pause_ms > 0:
                     QThread.msleep(self.pause_ms)
         except Exception as e:  # noqa: BLE001
-            self.error.emit(self.job_id, str(e))
+            try:
+                tb = traceback.format_exc()
+            except Exception:
+                tb = f"{type(e).__name__}: {e}"
+            self.error.emit(self.job_id, tb)
 
 
 # ----------------------------- Data types -----------------------------
@@ -238,7 +248,9 @@ class ConvertLeicaApp(QMainWindow):
         splitter = QSplitter(Qt.Orientation.Horizontal)
 
         left = QWidget(); left_layout = QVBoxLayout(left); left_layout.setContentsMargins(0, 0, 0, 0)
-        left_layout.addWidget(QLabel("Folders and Leica files:"))
+        # Keep a reference so we can align its height with the header buttons on the right
+        self.lbl_folders = QLabel("Folders and Leica files:")
+        left_layout.addWidget(self.lbl_folders)
         self.tree_fs = QTreeWidget(); self.tree_fs.setHeaderHidden(True)
         self.tree_fs.itemExpanded.connect(self.on_fs_item_expanded)
         self.tree_fs.itemDoubleClicked.connect(self.on_fs_item_double_clicked)
@@ -252,7 +264,9 @@ class ConvertLeicaApp(QMainWindow):
         right_left = QWidget(); right_left_layout = QVBoxLayout(right_left); right_left_layout.setContentsMargins(0, 0, 0, 0)
         # Header row with label and JSON buttons
         header_row = QHBoxLayout()
-        header_row.addWidget(QLabel("Contents of selected Leica file:"))
+        # Keep a reference to the label so we can align button heights to it
+        self.lbl_contents = QLabel("Contents of selected Leica file:")
+        header_row.addWidget(self.lbl_contents)
         header_row.addStretch(1)
         self.btn_show_folder_json = QPushButton("Folder JSON")
         self.btn_show_folder_json.setToolTip("Show the JSON for the selected folder (or file root)")
@@ -262,6 +276,16 @@ class ConvertLeicaApp(QMainWindow):
         self.btn_show_image_json.setToolTip("Show the JSON metadata for the selected image")
         self.btn_show_image_json.clicked.connect(self.show_image_json)
         self.btn_show_image_json.setEnabled(False)
+        # Align label heights to the typical button height for a clean, readable header
+        try:
+            _h_btn = max(self.btn_show_folder_json.sizeHint().height(), self.btn_show_image_json.sizeHint().height())
+            if _h_btn and _h_btn > 0:
+                self.lbl_contents.setFixedHeight(_h_btn)
+                # Also align the left-pane section label
+                if hasattr(self, 'lbl_folders') and self.lbl_folders is not None:
+                    self.lbl_folders.setFixedHeight(_h_btn)
+        except Exception:
+            pass
         header_row.addWidget(self.btn_show_folder_json)
         header_row.addWidget(self.btn_show_image_json)
         right_left_layout.addLayout(header_row)
@@ -390,7 +414,7 @@ class ConvertLeicaApp(QMainWindow):
             entries = sorted(os.listdir(parent_path))
         except Exception:
             return
-        # If any .xlef exists, filter to .xlef only (align with server)
+    # If any .xlef exists, prefer microscopy files: allow .xlef, hide others
         has_xlef = any(os.path.splitext(n)[1].lower() == ".xlef" for n in entries)
         for name in entries:
             low = name.lower()
@@ -407,13 +431,13 @@ class ConvertLeicaApp(QMainWindow):
                 item.addChild(QTreeWidgetItem(["…"]))
                 parent_item.addChild(item)
             else:
-                if has_xlef and ext != ".xlef":
+                if has_xlef and ext not in (".xlef",):
                     continue
-                if ext in (".lif", ".xlef", ".lof"):
-                    item = QTreeWidgetItem([name])
-                    item.setIcon(0, self.icon_for_file(ext))
-                    item.setData(0, Qt.ItemDataRole.UserRole, full)
-                    parent_item.addChild(item)
+            if ext in (".lif", ".xlef", ".lof"):
+                item = QTreeWidgetItem([name])
+                item.setIcon(0, self.icon_for_file(ext))
+                item.setData(0, Qt.ItemDataRole.UserRole, full)
+                parent_item.addChild(item)
 
     def on_fs_item_double_clicked(self, item: QTreeWidgetItem, column: int):
         path = item.data(0, Qt.ItemDataRole.UserRole)
@@ -479,8 +503,8 @@ class ConvertLeicaApp(QMainWindow):
         # Default output folder near this file
         outdir = os.path.join(os.path.dirname(filepath), "_c")
         self.edit_out.setText(outdir)
-        # Enable folder JSON now that a file is loaded
-        self.btn_show_folder_json.setEnabled(True)
+        # Enable folder JSON only for Leica types
+        self.btn_show_folder_json.setEnabled(ext in (".lif", ".xlef", ".lof"))
 
     # ----------------------------- Image selection, preview -----------------------------
     def on_image_selection_changed(self):
@@ -505,6 +529,9 @@ class ConvertLeicaApp(QMainWindow):
 
         name = item.text(0)
         uuid = item.data(0, Qt.ItemDataRole.UserRole + 3)
+        ext = os.path.splitext(self.current_file)[1].lower()
+
+    # No special handling for CZI; those files are no longer supported in this UI
         # Find closest ancestor carrying folder_metadata
         folder_meta = None
         ancestor = item.parent()
@@ -544,7 +571,12 @@ class ConvertLeicaApp(QMainWindow):
                 self.last_image_meta_json = json.dumps({"error": "Could not serialize metadata"}, indent=2)
             self.meta_text.setPlainText(self.format_meta_summary(meta))
         except Exception as e:
-            self.preview_label.setText(f"Preview error: {e}")
+            try:
+                tb = traceback.format_exc()
+            except Exception:
+                tb = f"{type(e).__name__}: {e}"
+            self.preview_label.setText("Preview error. See log for details.")
+            self.append_log(tb)
             self.selected_image = None
             self.btn_convert.setEnabled(False)
             self.btn_show_image_json.setEnabled(False)
