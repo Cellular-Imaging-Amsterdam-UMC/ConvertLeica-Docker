@@ -222,5 +222,5 @@ MIT License
 
 ## More documentation
 
-- Server.md — Web server and website documentation, including progressive preview and disk cache behavior, endpoints, and client flow.
-- ConvertLeicaQT.md — Desktop Qt GUI documentation with browsing, progressive previews (cache parity with server), and conversion workflow.
+- [Server.md](Server.md) — Web server and website documentation, including progressive preview and disk cache behavior, endpoints, and client flow.
+- [ConvertLeicaQT.md](ConvertLeicaQT.md) — Desktop Qt GUI documentation with browsing, progressive previews (cache parity with server), and conversion workflow.
