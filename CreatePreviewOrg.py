@@ -7,7 +7,6 @@ import glob
 import json
 import base64
 import tempfile
-import uuid as _uuid
 
 def create_png_from_metadata(metadata, preview_height=256, use_memmap=True):
     """
@@ -35,12 +34,7 @@ def create_png_from_metadata(metadata, preview_height=256, use_memmap=True):
     zs = metadata["zs"]
     channels = metadata.get("channels", 1)
     isrgb = metadata.get("isrgb", False)
-    # channelResolution may be missing or scalar
-    res = metadata.get("channelResolution", 8)
-    if isinstance(res, list):
-        channelResolution = res if res else [8] * channels
-    else:
-        channelResolution = [int(res)] * channels
+    channelResolution = metadata.get("channelResolution", [8] * channels)  # Assuming 8-bit as default
     channelbytesinc = metadata.get("channelbytesinc", [0] * channels)  # Default empty list
     zbytesinc = metadata.get("zbytesinc", 0)
     tbytesinc = metadata.get("tbytesinc", 0)
@@ -156,13 +150,10 @@ def create_preview_image(metadata, cache_folder, preview_height=256, use_memmap=
         os.makedirs(cache_folder)
 
     # Generate a unique cache filename using uuid and preview_height
-    uid = metadata.get("UniqueID") or metadata.get("uuid") or metadata.get("ImageUUID")
-    if not uid:
-        # Fallback to a derived stable-ish key using file and dims; final fallback random
-        base = f"{metadata.get('LOFFilePath') or metadata.get('LIFFile')}_{metadata.get('xs')}x{metadata.get('ys')}"
-        uid = metadata.get("hash") or base or str(_uuid.uuid4())
+    if "UniqueID" not in metadata:
+        raise ValueError("metadata does not contain a UniqueID")
 
-    uuid = str(uid)
+    uuid = metadata["UniqueID"]
     cache_filename = f"{uuid}_h{preview_height}.png"
     cache_image_path = os.path.join(cache_folder, cache_filename)
 

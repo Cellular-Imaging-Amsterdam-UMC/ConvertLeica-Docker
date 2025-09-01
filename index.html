@@ -47,6 +47,8 @@
         let SHOW_IMAGEMETADATA = false; // Toggle to show/hide image metadata
         let MAX_XY_SIZE = null;
         let PREVIEW_SIZE = null;
+        let PREVIEW_STEPS = null; // progressive preview steps from backend
+        let PREVIEW_CACHE_MAX = null;
 
         // Add these two variables for tracking current image selection
         let currentImageUuid = null;
@@ -63,20 +65,27 @@
         let currentDir = null, currentFolderUuid = null, currentFolderName = null;
         let lastPreviewItem = null;
 
+        // Ensure an image is loaded/painted before continuing
+        async function ensureImagePaint(img) {
+            try {
+                if (img && img.decode) {
+                    await img.decode();
+                }
+            } catch (e) { /* ignore */ }
+            await new Promise(requestAnimationFrame);
+        }
+
         // Updated buildBreadcrumb to render using breadcrumbHistory entries.
         function buildBreadcrumb() {
             const normRoot = normalizePath(ROOT_DIR);
-            let breadcrumbHTML = `<a onclick="loadDir('${normRoot}')" class="folder">${ROOT_DIR}</a>`;
+                const rootOnclick = `loadDir(${JSON.stringify(normRoot)}, null, ${JSON.stringify(ROOT_DIR)})`;
+                let breadcrumbHTML = `<a onclick='${rootOnclick}' class="folder">${ROOT_DIR}</a>`;
             breadcrumbHistory.forEach(crumb => {
-                let onclick = `loadDir('${crumb.path}'`;
-                if (crumb.uuid) {
-                    onclick += `, '${crumb.uuid}'`;
-                }
-                if (crumb.name) {
-                    onclick += `, '${crumb.name}'`;
-                }
-                onclick += `)`;
-                breadcrumbHTML += ` / <a onclick="${onclick}" class="folder">${crumb.name}</a>`;
+                const pathArg = JSON.stringify(crumb.path);
+                const uuidArg = (crumb.uuid ? JSON.stringify(crumb.uuid) : 'null');
+                const nameArg = JSON.stringify(crumb.name ?? '');
+                const onclick = `loadDir(${pathArg}, ${uuidArg}, ${nameArg})`;
+                breadcrumbHTML += ` / <a onclick='${onclick}' class="folder">${crumb.name ?? ''}</a>`;
             });
             document.getElementById("breadcrumb").innerHTML = breadcrumbHTML;
         }
@@ -261,10 +270,11 @@
 
         // LoadPreview function to updates currentImageUuid and currentFilePath
         // and show/hide the export button
-        async function loadPreview(item) {
+    async function loadPreview(item) {
             // Store current image information for export
             currentImageUuid = item.uuid;
             currentFilePath = item.path;
+            lastPreviewItem = item; // track to cancel stale progressive loops
 
             // Reset the export status message when a new image is selected
             document.getElementById("exportStatus").textContent = "";
@@ -292,53 +302,122 @@
                 return;
             }
             try {
-                const res = await fetch(`${API_BASE}/preview`, {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json"
-                    },
-                    body: JSON.stringify({
-                        filePath: item.path,
-                        image_uuid: item.uuid || 'n/a',
-                        folder_metadata: currentFolderMetadata,  // Send folder_metadata
-                        preview_height: PREVIEW_SIZE
-                    })
-                });
-                const data = await res.json();
-                document.getElementById("previewImage").src = data.src;
-                let meta;
-                try {
-                    meta = JSON.parse(data.metadata);
-                } catch(e) {
-                    meta = {};
-                }
-                if(meta.save_child_name) {
-                    document.getElementById("imageNameDisplay").innerText = meta.save_child_name;
-                } else {
-                    document.getElementById("imageNameDisplay").innerText = "";
-                }
-                updateMetadata(data.metadata);
-
-                const convertLeicaButton = document.getElementById("convertLeicaButton");
-
                 // Show the convertLeicaButton for all supported file types
-                // (allowed is defined above in this function: ["lif","xlef","lof"])
-                if (allowed.includes(ext)) {
-                    convertLeicaButton.style.display = "inline-block";
-                } else {
-                    convertLeicaButton.style.display = "none";
+                const convertLeicaButton = document.getElementById("convertLeicaButton");
+                convertLeicaButton.style.display = "inline-block";
+
+                // Ask server for cache status and dimensions
+                let maxCached = 0, xs = null, ys = null;
+                try {
+                    const sres = await fetch(`${API_BASE}/preview_status`, {
+                        method: 'POST', headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ filePath: item.path, image_uuid: item.uuid||'n/a', folder_metadata: currentFolderMetadata })
+                    });
+                    if (sres.ok) {
+                        const sdata = await sres.json();
+                        maxCached = sdata.maxCached || 0;
+                        xs = sdata.xs; ys = sdata.ys;
+                    }
+                } catch {}
+
+                                const steps = Array.isArray(PREVIEW_STEPS) && PREVIEW_STEPS.length
+                                    ? PREVIEW_STEPS.slice() : [];
+
+                                const maxStep = steps.length ? Math.max(...steps) : (PREVIEW_SIZE || 0);
+
+                // If image is small (≤2048×2048), fetch only the max preview once.
+                const SMALL_LIMIT = 2048;
+                const isSmall = (xs && ys) ? (xs <= SMALL_LIMIT && ys <= SMALL_LIMIT) : false;
+                if (isSmall || (steps.length && maxCached === maxStep)) {
+                    const targetH = steps.length ? maxStep : (PREVIEW_SIZE || 0);
+                    const res = await fetch(`${API_BASE}/preview`, {
+                        method: 'POST', headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ filePath: item.path, image_uuid: item.uuid||'n/a', folder_metadata: currentFolderMetadata, preview_height: targetH })
+                    });
+                    if (!res.ok) throw new Error(`Preview failed at height ${targetH}`);
+                    const data = await res.json();
+                    const imgEl = document.getElementById('previewImage');
+                    imgEl.src = data.src;
+                    await ensureImagePaint(imgEl);
+                    const lastMetaStr = data.metadata;
+                    let meta = {}; try { meta = JSON.parse(lastMetaStr); } catch {}
+                    document.getElementById('imageNameDisplay').innerText = meta.save_child_name || '';
+                    updateMetadata(lastMetaStr);
+                    return;
                 }
 
-                // Display image metadata in the metadata container
-                const folderMetadataContainer = document.getElementById("folderMetadataContainer");
-                const folderMetadataDisplay  = document.getElementById("folderMetadata");
-                if (SHOW_IMAGEMETADATA) {
-                    document.getElementById("metadataTitle").innerText = "Image Metadata";
-                    const formattedMetadata = JSON.stringify(JSON.parse(data.metadata), null, 2);
-                    folderMetadataDisplay.textContent = formattedMetadata;
-                    folderMetadataContainer.style.display = "block";
-                } else {
-                    folderMetadataContainer.style.display = "none";
+                // Progressive: skip steps already cached
+                const startIdx = steps.findIndex(h => h > maxCached);
+                const progSteps = startIdx >= 0 ? steps.slice(startIdx) : [];
+
+                // If no steps provided by server, fall back to single fetch at PREVIEW_SIZE
+                if (!progSteps.length && !steps.length && PREVIEW_SIZE) {
+                    const res = await fetch(`${API_BASE}/preview`, {
+                        method: 'POST', headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ filePath: item.path, image_uuid: item.uuid||'n/a', folder_metadata: currentFolderMetadata, preview_height: PREVIEW_SIZE })
+                    });
+                    if (!res.ok) throw new Error(`Preview failed at height ${PREVIEW_SIZE}`);
+                    const data = await res.json();
+                    const imgEl = document.getElementById('previewImage');
+                    imgEl.src = data.src;
+                    await ensureImagePaint(imgEl);
+                    const lastMetaStr = data.metadata;
+                    let meta = {}; try { meta = JSON.parse(lastMetaStr); } catch {}
+                    document.getElementById('imageNameDisplay').innerText = meta.save_child_name || '';
+                    updateMetadata(lastMetaStr);
+                    return;
+                }
+
+                let lastMetaStr = null;
+                for (const h of progSteps) {
+                    // Abort if user clicked a different item
+                    if (lastPreviewItem !== item) break;
+
+                    const res = await fetch(`${API_BASE}/preview`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            filePath: item.path,
+                            image_uuid: item.uuid || 'n/a',
+                            folder_metadata: currentFolderMetadata,
+                            preview_height: h
+                        })
+                    });
+                    if (!res.ok) throw new Error(`Preview failed at height ${h}`);
+                    const data = await res.json();
+
+                    // Update image immediately as each step arrives
+                    const imgEl = document.getElementById("previewImage");
+                    imgEl.src = data.src;
+                    // Wait for this image to load and be ready to paint before next step
+                    await ensureImagePaint(imgEl);
+
+                    // Update metadata/name from server response
+                    lastMetaStr = data.metadata;
+                    let meta = {};
+                    try { meta = JSON.parse(lastMetaStr); } catch {}
+                    if (meta.save_child_name) {
+                        document.getElementById("imageNameDisplay").innerText = meta.save_child_name;
+                    } else {
+                        document.getElementById("imageNameDisplay").innerText = "";
+                    }
+                    updateMetadata(lastMetaStr);
+
+                    // Optionally show image metadata JSON (if toggle is on)
+                    const folderMetadataContainer = document.getElementById("folderMetadataContainer");
+                    const folderMetadataDisplay  = document.getElementById("folderMetadata");
+                    if (SHOW_IMAGEMETADATA) {
+                        document.getElementById("metadataTitle").innerText = "Image Metadata";
+                        try {
+                            const formattedMetadata = JSON.stringify(JSON.parse(lastMetaStr), null, 2);
+                            folderMetadataDisplay.textContent = formattedMetadata;
+                            folderMetadataContainer.style.display = "block";
+                        } catch {
+                            folderMetadataContainer.style.display = "none";
+                        }
+                    } else {
+                        folderMetadataContainer.style.display = "none";
+                    }
                 }
             } catch (err) {
                 console.error("Error fetching preview:", err);
@@ -460,6 +539,16 @@
                 ROOT_DIR = data.rootDir;
                 MAX_XY_SIZE = data.maxXYSize;
                 PREVIEW_SIZE = data.previewSize;
+                PREVIEW_STEPS = Array.isArray(data.previewSteps) ? data.previewSteps : [];
+                // Fix the displayed preview size to the max preview height so it doesn't grow
+                const imgEl = document.getElementById("previewImage");
+                if (imgEl && PREVIEW_SIZE) {
+                    imgEl.style.height = `${PREVIEW_SIZE}px`;
+                    imgEl.style.maxHeight = `${PREVIEW_SIZE}px`;
+                    imgEl.style.width = 'auto';
+                    imgEl.style.objectFit = 'contain';
+                    imgEl.style.display = 'block';
+                }
                 currentDir = normalizePath(ROOT_DIR);
                 // Hide convertLeicaButton at startup
                 document.getElementById("convertLeicaButton").style.display = "none";

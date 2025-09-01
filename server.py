@@ -3,17 +3,26 @@ import json
 import urllib.parse
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 import webbrowser
+import threading
 from ci_leica_converters_helpers import read_leica_file,get_image_metadata,get_image_metadata_LOF
-from CreatePreview import create_preview_base64_image
+from CreatePreview import create_preview_base64_image, create_preview_image
 from leica_converter import convert_leica
 import sys
+import tempfile
 
 
 ROOT_DIR = "L:/Archief/active/cellular_imaging/OMERO_test"  # change as needed
 OUTPUT_SUBFOLDER = "_c"  # Output subfolder for converted files
 DEFAULT_PORT = 8000  # Default port for the server
 MAX_XY_SIZE = 3192 # Maximum XY size of OME_Tiff files without pyramids
-PREVIEW_SIZE = 384 # Default preview size in pixels
+PREVIEW_SIZE = 256 # Default preview size in pixels
+PREVIEW_STEPS = [24, 112, 256]  # Progressive preview steps
+PREVIEW_CACHE_MAX = 500  # Maximum number of cached previews
+
+def get_cache_dir():
+    d = os.path.join(tempfile.gettempdir(), "leica_preview_cache")
+    os.makedirs(d, exist_ok=True)
+    return d
 
 class SSEStream:
     """
@@ -58,8 +67,6 @@ class MyHTTPRequestHandler(SimpleHTTPRequestHandler):
         if parsed.path.startswith("/api/"):
             if parsed.path == "/api/list":
                 self.handle_list(parsed.query)
-            elif parsed.path == "/api/preview":
-                self.handle_preview(parsed.query)
             elif parsed.path == "/api/config":
                 self.handle_config()
             else:
@@ -67,7 +74,7 @@ class MyHTTPRequestHandler(SimpleHTTPRequestHandler):
                 self.end_headers()
             return
         # Else serve files as usual.
-        super().do_GET()
+        return super().do_GET()
 
     def do_POST(self):
         parsed = urllib.parse.urlparse(self.path)
@@ -77,6 +84,8 @@ class MyHTTPRequestHandler(SimpleHTTPRequestHandler):
             self.handle_lof_metadata()
         elif parsed.path == "/api/convert_leica":
             self.handle_convert_leica()
+        elif parsed.path == "/api/preview_status":
+            self.handle_preview_status()
         else:
             self.send_response(404)
             self.end_headers()
@@ -200,10 +209,32 @@ class MyHTTPRequestHandler(SimpleHTTPRequestHandler):
                 image_metadata = json.dumps(image_metadata)  # Convert back to JSON string
             else:
                 image_metadata = get_image_metadata(folder_metadata, image_uuid)
-            src = create_preview_base64_image(image_metadata, preview_height=preview_height, use_memmap=True)
+            # Use server-side cache to create or reuse preview file, then return base64
+            cache_dir = get_cache_dir()
+            # Detect whether this preview already exists in cache (for client hint)
+            try:
+                meta_for_uuid = json.loads(image_metadata) if isinstance(image_metadata, str) else image_metadata
+                uid = meta_for_uuid.get("UniqueID")
+            except Exception:
+                uid = None
+            cache_path = None
+            cached_before = False
+            if uid:
+                cache_filename = f"{uid}_h{int(preview_height)}.png"
+                cache_path = os.path.join(cache_dir, cache_filename)
+                cached_before = os.path.exists(cache_path)
+
+            # Create (or reuse) cached preview
+            cached_file = create_preview_image(image_metadata, cache_dir, preview_height=int(preview_height), use_memmap=True, max_cache_size=PREVIEW_CACHE_MAX)
+            # Read file and return base64 data URL
+            with open(cached_file, 'rb') as f:
+                b64 = f.read()
+            mime = "image/png"
+            import base64 as _b64
+            src = f"data:{mime};base64,{_b64.b64encode(b64).decode('utf-8')}"
 
             # Return both preview src and image metadata
-            response = {"src": src, "metadata": image_metadata}
+            response = {"src": src, "metadata": image_metadata, "height": int(preview_height), "cached": bool(cached_before)}
             self.send_response(200)
             self.send_header("Content-type", "application/json")
             self.send_header("Access-Control-Allow-Origin", "*")
@@ -284,14 +315,71 @@ class MyHTTPRequestHandler(SimpleHTTPRequestHandler):
         self.wfile.write(json.dumps({
             "rootDir": ROOT_DIR,
             "maxXYSize": MAX_XY_SIZE,
-            "previewSize": PREVIEW_SIZE
+            "previewSize": PREVIEW_SIZE,
+            "previewSteps": PREVIEW_STEPS,
+            "previewCacheMax": PREVIEW_CACHE_MAX
         }).encode("utf-8"))
+
+    def handle_preview_status(self):
+        # Returns max cached preview height and image dimensions, without generating previews
+        content_length = int(self.headers['Content-Length'])
+        post_data = self.rfile.read(content_length)
+        try:
+            data = json.loads(post_data.decode('utf-8'))
+            filePath = data.get("filePath")
+            image_uuid = data.get("image_uuid")
+            folder_metadata = data.get("folder_metadata")
+
+            ext = os.path.splitext(filePath)[1].lower()
+            if ext == ".lof":
+                image_metadata = read_leica_file(filePath)
+                meta = json.loads(image_metadata)
+            elif ext == ".xlef":
+                image_metadata_f = json.loads(get_image_metadata(folder_metadata, image_uuid))
+                lof_like = json.loads(get_image_metadata_LOF(folder_metadata, image_uuid))
+                if "save_child_name" in image_metadata_f:
+                    lof_like["save_child_name"] = image_metadata_f["save_child_name"]
+                meta = lof_like
+            else:
+                meta = json.loads(get_image_metadata(folder_metadata, image_uuid))
+
+            uid = meta.get("UniqueID")
+            xs = meta.get("xs") or (meta.get("dimensions") or {}).get("x")
+            ys = meta.get("ys") or (meta.get("dimensions") or {}).get("y")
+
+            max_cached = 0
+            if uid:
+                cache_dir = get_cache_dir()
+                for h in PREVIEW_STEPS:
+                    p = os.path.join(cache_dir, f"{uid}_h{int(h)}.png")
+                    if os.path.exists(p):
+                        max_cached = max(max_cached, int(h))
+
+            resp = {"maxCached": max_cached, "xs": xs, "ys": ys}
+            self.send_response(200)
+            self.send_header("Content-type", "application/json")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            self.wfile.write(json.dumps(resp).encode("utf-8"))
+        except Exception as e:
+            self.send_error(500, str(e))
 
 def run(server_class=ThreadingHTTPServer, handler_class=MyHTTPRequestHandler, port=DEFAULT_PORT):
     server_address = ("", port)
     httpd = server_class(server_address, handler_class)
     print(f"Starting server on http://localhost:{port}")
-    webbrowser.open(f"http://localhost:{port}")  # launch default browser
+    # Launch default browser without blocking server startup
+    try:
+        url = f"http://localhost:{port}"
+        if os.name == 'nt':
+            try:
+                os.startfile(url)  # type: ignore[attr-defined]
+            except Exception:
+                threading.Thread(target=lambda: webbrowser.open(url), daemon=True).start()
+        else:
+            threading.Thread(target=lambda: webbrowser.open(url), daemon=True).start()
+    except Exception:
+        pass
     httpd.serve_forever()
 
 if __name__ == "__main__":

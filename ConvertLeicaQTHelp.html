@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Convert Leica — Help</title>
+  <style>
+    body { background:#222; color:#eee; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; }
+    a { color:#6bb6ff; }
+    code, pre { background:#111; color:#ddd; padding:2px 4px; border-radius:4px; }
+    h1,h2,h3 { color:#fff; }
+    .box { background:#2c2c2c; border:1px solid #444; border-radius:8px; padding:12px; margin:12px 0; }
+    .kbd { background:#333; border:1px solid #555; border-bottom-width:3px; border-radius:6px; padding:1px 6px; }
+  </style>
+</head>
+<body>
+  <h1>Convert Leica — Desktop GUI</h1>
+  <p>This app lets you browse folders, open Leica files (.lif, .xlef, .lof), preview images, and convert a selected image to OME‑TIFF using the same logic as the web server.</p>
+
+  <div class="box">
+    <h2>Workflow</h2>
+    <ol>
+      <li>Click <span class="kbd">Browse…</span> to choose a root folder.</li>
+      <li>Double‑click a folder to drill down, or double‑click a Leica file to load its images.</li>
+      <li>Select an image in the right panel to see a preview (center Z/time/tile).</li>
+      <li>Choose an output folder (defaults to <code>_c</code> next to the file).</li>
+      <li>Click <strong>Convert selected image → OME‑TIFF</strong>.</li>
+    </ol>
+  </div>
+
+  <div class="box">
+    <h2>Notes</h2>
+    <ul>
+      <li>Preview uses existing repository helpers to read metadata and extract a quick slice.</li>
+      <li>Conversion calls <code>convert_leica()</code>, which decides whether to create an OME‑TIFF or return an existing LOF/single‑LIF depending on size and settings.</li>
+      <li>Progress messages appear in the log at the bottom.</li>
+      <li>Filtering of noisy entries (e.g., <code>*.lifext</code>, environmental graphs) matches the server behavior.</li>
+    </ul>
+  </div>
+
+  <div class="box">
+    <h2>Troubleshooting</h2>
+    <ul>
+      <li>If previews fail, verify the input files are accessible and not locked by another program.</li>
+      <li>Make sure dependencies from <code>requirements.txt</code> are installed.</li>
+      <li>Large images may take time to preview/convert; watch the log for progress.</li>
+    </ul>
+  </div>
+
+  <p>Questions or bugs? Open an issue in your repository or check the console output for details.</p>
+</body>
+</html>
