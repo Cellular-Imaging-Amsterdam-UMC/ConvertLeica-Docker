@@ -28,8 +28,9 @@ from datetime import datetime
 
 # Internal helpers from the repo
 from ci_leica_converters_helpers import read_leica_file, get_image_metadata, get_image_metadata_LOF
-from CreatePreview import create_png_from_metadata
+from CreatePreview import create_preview_image
 from leica_converter import convert_leica
+import tempfile
 
 
 # ----------------------------- Theme (inspired by MultiRepAnalysisQT) -----------------------------
@@ -115,14 +116,18 @@ class PreviewWorker(QThread):
     Emits previewReady(job_id, height, path) for each generated PNG file path.
     The main thread must load the pixmap and delete the temp file.
     """
-    previewReady = pyqtSignal(int, int, str)  # job_id, height, temp_png_path
+    previewReady = pyqtSignal(int, int, str)  # job_id, height, cached_png_path
     error = pyqtSignal(int, str)              # job_id, message
+    cacheInfo = pyqtSignal(int, int, bool)    # job_id, height, cached_before
 
-    def __init__(self, job_id: int, meta: dict, heights: list[int], use_memmap: bool = True, pause_ms: int = 120):
+    def __init__(self, job_id: int, meta: dict, heights: list[int], cache_dir: str, max_cache_size: int,
+                 use_memmap: bool = True, pause_ms: int = 120):
         super().__init__()
         self.job_id = int(job_id)
         self.meta = meta
         self.heights = list(heights)
+        self.cache_dir = cache_dir
+        self.max_cache_size = int(max_cache_size)
         self.use_memmap = bool(use_memmap)
         self.pause_ms = int(pause_ms)
 
@@ -133,12 +138,31 @@ class PreviewWorker(QThread):
                     break
                 # Generate this step
                 try:
-                    temp_png = create_png_from_metadata(self.meta, preview_height=int(h), use_memmap=self.use_memmap)
+                    # Check if cached file exists before triggering generation
+                    cached_before = False
+                    uid = (
+                        self.meta.get("UniqueID")
+                        or self.meta.get("uuid")
+                        or self.meta.get("ImageUUID")
+                    )
+                    cache_path = None
+                    if uid:
+                        cache_path = os.path.join(self.cache_dir, f"{uid}_h{int(h)}.png")
+                        cached_before = os.path.exists(cache_path)
+                    self.cacheInfo.emit(self.job_id, int(h), bool(cached_before))
+
+                    cached_png = create_preview_image(
+                        self.meta,
+                        self.cache_dir,
+                        preview_height=int(h),
+                        use_memmap=self.use_memmap,
+                        max_cache_size=self.max_cache_size,
+                    )
                 except Exception as e:  # noqa: BLE001
                     self.error.emit(self.job_id, str(e))
                     break
                 # Deliver to UI
-                self.previewReady.emit(self.job_id, int(h), temp_png)
+                self.previewReady.emit(self.job_id, int(h), cached_png)
                 # Brief pause to allow UI to react and for possible cancellation before next step
                 if self.pause_ms > 0:
                     QThread.msleep(self.pause_ms)
@@ -157,6 +181,22 @@ class ImageItem:
 # ----------------------------- Main Window -----------------------------
 class ConvertLeicaApp(QMainWindow):
     VERSION = "1.0.0"
+
+    # Try importing server constants for parity; provide sane fallbacks
+    try:
+        from server import PREVIEW_STEPS as _SERVER_PREVIEW_STEPS  # type: ignore
+    except Exception:
+        _SERVER_PREVIEW_STEPS = [24, 112, 256]
+    try:
+        from server import PREVIEW_CACHE_MAX as _SERVER_PREVIEW_CACHE_MAX  # type: ignore
+    except Exception:
+        _SERVER_PREVIEW_CACHE_MAX = 500
+
+    @staticmethod
+    def get_cache_dir() -> str:
+        d = os.path.join(tempfile.gettempdir(), "leica_preview_cache")
+        os.makedirs(d, exist_ok=True)
+        return d
 
     def __init__(self) -> None:
         super().__init__()
@@ -842,10 +882,40 @@ class ConvertLeicaApp(QMainWindow):
         # Show immediate loading hint
         self.preview_label.setText("Loading preview…")
 
-        heights = [16, 32, 64, 128, 256, 384]
-        worker = PreviewWorker(job_id, meta, heights, use_memmap=True, pause_ms=120)
+        # Use same progressive steps as server when possible
+        steps = list(self._SERVER_PREVIEW_STEPS)
+        # Apply 2048x2048 small-image rule: if image small, fetch only the max step
+        xs = meta.get("xs") or (meta.get("dimensions") or {}).get("x")
+        ys = meta.get("ys") or (meta.get("dimensions") or {}).get("y")
+        try:
+            xi = int(xs) if xs is not None else None
+            yi = int(ys) if ys is not None else None
+        except Exception:
+            xi = yi = None
+        if xi is not None and yi is not None and xi <= 2048 and yi <= 2048 and steps:
+            heights = [max(steps)]
+        else:
+            # If the largest step is already cached, skip smaller steps and use only the largest
+            if steps:
+                max_step = max(steps)
+                uid = meta.get("UniqueID") or meta.get("uuid") or meta.get("ImageUUID")
+                cache_dir = self.get_cache_dir()
+                if uid:
+                    largest_cached_path = os.path.join(cache_dir, f"{uid}_h{int(max_step)}.png")
+                    if os.path.exists(largest_cached_path):
+                        heights = [max_step]
+                    else:
+                        heights = steps
+                else:
+                    heights = steps
+            else:
+                heights = steps
+        cache_dir = self.get_cache_dir()
+        worker = PreviewWorker(job_id, meta, heights, cache_dir, self._SERVER_PREVIEW_CACHE_MAX,
+                    use_memmap=True, pause_ms=100)
         worker.previewReady.connect(self._on_preview_ready)
         worker.error.connect(self._on_preview_error)
+        worker.cacheInfo.connect(self._on_cache_info)
         self._preview_worker = worker
         worker.start()
 
@@ -863,17 +933,19 @@ class ConvertLeicaApp(QMainWindow):
             if not pix.isNull():
                 self._preview_pixmap = pix
                 self._update_preview_scaled()
-        finally:
-            try:
-                if temp_png and os.path.exists(temp_png):
-                    os.remove(temp_png)
-            except Exception:
-                pass
+        except Exception:
+            pass
 
     def _on_preview_error(self, job_id: int, message: str):  # slot
         if job_id != self._preview_job_id:
             return
         self.preview_label.setText(f"Preview error: {message}")
+
+    def _on_cache_info(self, job_id: int, height: int, cached_before: bool):  # slot
+        if job_id != self._preview_job_id:
+            return
+        # Lightweight trace in log; helps confirm cache hits
+        # self.append_log(f"Preview {height}px: {'cache hit' if cached_before else 'cache miss'}")
 
 
 def main() -> None:
