@@ -14,13 +14,11 @@ ConvertLeica-Docker is a toolset and web interface for converting Leica LIF, LOF
   - [Function Output](#function-output-format)
   - [Conversion Scenarios](#conversion-scenarios)
   - [WSL/Windows Example Usage](#wslwindows-example-usage)
-- [Web Server & Local Website](#web-server--local-website)
-  - [How it Works](#how-it-works)
-  - [Browsing and Conversion](#browsing-and-conversion)
 - [Special Cases](#special-cases)
 - [Troubleshooting](#troubleshooting)
 - [License](#license)
 - [References](#references)
+- [More documentation](#more-documentation)
 
 ---
 
@@ -194,34 +192,6 @@ print(status)
 
 ---
 
-## Web Server & Local Website
-
-### How it Works
-
-- `server.py` starts a local HTTP server and API for browsing and converting Leica files.
-- `index.html` provides a modern web interface for:
-  - Browsing the directory tree (set by `ROOT_DIR` in `server.py`)
-  - Previewing images and metadata
-  - Converting images to OME-TIFF (or returning .LOF/.LIF in special cases)
-
-### Running the Server
-
-```sh
-python server.py
-```
-
-- The server will open a browser window to the local site (by default at: `http://localhost:8000/`)
-- You can browse, preview, and convert files interactively.
-
-### Browsing and Conversion
-
-- Navigate folders and select LIF, LOF, or XLEF files
-- Preview images and inspect metadata
-- Click "Convert Image" to trigger conversion
-- The output will be OME-TIFF, .LOF, or single-image .LIF depending on the scenario (see below)
-
----
-
 ## Special Cases
 
 - **Tilescan with Negative Overlap (LIF)**: Instead of OME-TIFF, a single-image .LIF is returned
@@ -247,3 +217,10 @@ MIT License
 - [NumPy](https://numpy.org/)
 - [pyvips](https://libvips.github.io/pyvips/)
 - [OpenCV (opencv-python)](https://pypi.org/project/opencv-python/)
+
+---
+
+## More documentation
+
+- Server.md — Web server and website documentation, including progressive preview and disk cache behavior, endpoints, and client flow.
+- ConvertLeicaQT.md — Desktop Qt GUI documentation with browsing, progressive previews (cache parity with server), and conversion workflow.
