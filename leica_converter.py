@@ -5,7 +5,7 @@ import shutil
 from ci_leica_converters_single_lif import convert_leica_to_singlelif
 from ci_leica_converters_ometiff import convert_leica_to_ometiff
 from ci_leica_converters_ometiff_rgb import convert_leica_rgb_to_ometiff
-from ci_leica_converters_helpers import  read_image_metadata
+from ci_leica_converters_helpers import read_image_metadata
 
 def convert_leica(inputfile='', image_uuid='n/a', show_progress=True, outputfolder=None, altoutputfolder=None, xy_check_value=3192):
     """
