@@ -634,7 +634,7 @@ class ConvertLeicaApp(QMainWindow):
                 # Show summary and JSON string in dialog
                 json_str = json.dumps(result, indent=2, ensure_ascii=False)
                 self.append_log("Conversion result (JSON):\n" + json_str)
-                QMessageBox.information(self, "Done", summary + "\n\nJSON Result:\n" + json_str)
+                # QMessageBox.information(self, "Done", summary + "\n\nJSON Result:\n" + json_str)
             except Exception:
                 QMessageBox.information(self, "Done", "Conversion completed.")
         else:

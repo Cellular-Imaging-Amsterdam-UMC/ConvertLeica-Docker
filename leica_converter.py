@@ -6,6 +6,7 @@ from ci_leica_converters_single_lif import convert_leica_to_singlelif
 from ci_leica_converters_ometiff import convert_leica_to_ometiff
 from ci_leica_converters_ometiff_rgb import convert_leica_rgb_to_ometiff
 from ci_leica_converters_helpers import read_image_metadata, _read_xlef_image, _find_image_hierarchical_path
+from image_channel_stats import compute_channel_intensity_stats
 
 def convert_leica(inputfile='', image_uuid='n/a', show_progress=True, outputfolder=None, altoutputfolder=None, xy_check_value=3192):
     """
@@ -68,6 +69,11 @@ def convert_leica(inputfile='', image_uuid='n/a', show_progress=True, outputfold
                     altoutputfolder=altoutputfolder
                 )
                 if created_filename:
+                    # Compute per-channel stats once
+                    stats = compute_channel_intensity_stats(metadata, sample_fraction=0.1, use_memmap=True)
+                    kv = dict(stats)
+                    kv["image_metadata_json"] = metadata
+                    kv["image_xml"] = metadata.get("xmlElement") or ""
                     # Use save_child_name from metadata if available, else fallback to filename logic
                     if save_child_name:
                         name = save_child_name
@@ -83,7 +89,12 @@ def convert_leica(inputfile='', image_uuid='n/a', show_progress=True, outputfold
                         alt_candidate = os.path.normpath(alt_candidate)
                         if os.path.exists(alt_candidate):
                             alt_path = alt_candidate
-                    result = [{"name": name, "full_path": full_path, "alt_path": alt_path}]
+                    result = [{
+                        "name": name,
+                        "full_path": full_path,
+                        "alt_path": alt_path,
+                        "keyvalues": [kv]
+                    }]
                     if show_progress: print(f"  Finished convert_leica_to_singlelif.")
                     return json.dumps(result)
                 else:
@@ -110,6 +121,10 @@ def convert_leica(inputfile='', image_uuid='n/a', show_progress=True, outputfold
                         altoutputfolder=altoutputfolder
                     )
                 if created_filename:
+                    stats = compute_channel_intensity_stats(metadata, sample_fraction=0.1, use_memmap=True)
+                    kv = dict(stats)
+                    kv["image_metadata_json"] = metadata
+                    kv["image_xml"] = metadata.get("xmlElement") or ""
                     if save_child_name:
                         name = save_child_name
                     else:
@@ -124,7 +139,12 @@ def convert_leica(inputfile='', image_uuid='n/a', show_progress=True, outputfold
                         alt_candidate = os.path.normpath(alt_candidate)
                         if os.path.exists(alt_candidate):
                             alt_path = alt_candidate
-                    result = [{"name": name, "full_path": full_path, "alt_path": alt_path}]
+                    result = [{
+                        "name": name,
+                        "full_path": full_path,
+                        "alt_path": alt_path,
+                        "keyvalues": [kv]
+                    }]
                     if show_progress: print(f"  Finished OME-TIFF conversion.")
                     return json.dumps(result)
                 else:
@@ -134,6 +154,10 @@ def convert_leica(inputfile='', image_uuid='n/a', show_progress=True, outputfold
         elif filetype in [".xlef", ".lof"]:
             relevant_path = lof_path if lof_path else inputfile
             if ((xs <= xy_check_value and ys <= xy_check_value) or (tiles>1 and overlap_is_negative)):
+                stats = compute_channel_intensity_stats(metadata, sample_fraction=0.1, use_memmap=True)
+                kv = dict(stats)
+                kv["image_metadata_json"] = metadata
+                kv["image_xml"] = metadata.get("xmlElement") or ""
                 if save_child_name:
                     name = save_child_name
                 else:
@@ -149,7 +173,12 @@ def convert_leica(inputfile='', image_uuid='n/a', show_progress=True, outputfold
                     os.makedirs(os.path.dirname(dest_path), exist_ok=True)
                     shutil.copy2(full_path, dest_path)
                     alt_path = dest_path
-                result = [{"name": name, "full_path": full_path, "alt_path": alt_path}]
+                result = [{
+                    "name": name,
+                    "full_path": full_path,
+                    "alt_path": alt_path,
+                    "keyvalues": [kv]
+                }]
                 if show_progress:
                     print(f"  No conversion needed for small/OverlapIsNegative {filetype}. Returning path: {relevant_path}")
                 return json.dumps(result)
@@ -174,6 +203,10 @@ def convert_leica(inputfile='', image_uuid='n/a', show_progress=True, outputfold
                         altoutputfolder=altoutputfolder
                     )
                 if created_filename:
+                    stats = compute_channel_intensity_stats(metadata, sample_fraction=0.1, use_memmap=True)
+                    kv = dict(stats)
+                    kv["image_metadata_json"] = metadata
+                    kv["image_xml"] = metadata.get("xmlElement") or ""
                     if save_child_name:
                         name = save_child_name
                     else:
@@ -188,7 +221,12 @@ def convert_leica(inputfile='', image_uuid='n/a', show_progress=True, outputfold
                         alt_candidate = os.path.normpath(alt_candidate)
                         if os.path.exists(alt_candidate):
                             alt_path = alt_candidate
-                    result = [{"name": name, "full_path": full_path, "alt_path": alt_path}]
+                    result = [{
+                        "name": name,
+                        "full_path": full_path,
+                        "alt_path": alt_path,
+                        "keyvalues": [kv]
+                    }]
                     if show_progress: print(f"  Finished OME-TIFF conversion.")
                     return json.dumps(result)
                 else:
