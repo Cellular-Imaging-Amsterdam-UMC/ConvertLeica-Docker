@@ -5,7 +5,7 @@ import shutil
 from ci_leica_converters_single_lif import convert_leica_to_singlelif
 from ci_leica_converters_ometiff import convert_leica_to_ometiff
 from ci_leica_converters_ometiff_rgb import convert_leica_rgb_to_ometiff
-from ci_leica_converters_helpers import read_image_metadata
+from ci_leica_converters_helpers import read_image_metadata, _read_xlef_image, _find_image_hierarchical_path
 
 def convert_leica(inputfile='', image_uuid='n/a', show_progress=True, outputfolder=None, altoutputfolder=None, xy_check_value=3192):
     """
@@ -45,8 +45,17 @@ def convert_leica(inputfile='', image_uuid='n/a', show_progress=True, outputfold
         isrgb = metadata.get("isrgb", False)
         overlap_is_negative = metadata.get("OverlapIsNegative", False)
         lof_path = metadata.get("LOFFilePath")
+        save_child_name = metadata.get("save_child_name")
+        # For XLEF/LOF images, reconstruct full hierarchical save_child_name if possible
+        if inputfile.lower().endswith(".xlef") and image_uuid and image_uuid != 'n/a':
+            try:
+                full_name = _find_image_hierarchical_path(inputfile, image_uuid)
+                if full_name:
+                    save_child_name = full_name
+            except Exception as e:
+                if show_progress:
+                    print(f"Warning: Could not get hierarchical save_child_name from XLEF: {e}")
 
-        # --- New Logic ---
         if filetype == ".lif":
             if tiles>1 and overlap_is_negative:
                 if show_progress:
@@ -59,14 +68,15 @@ def convert_leica(inputfile='', image_uuid='n/a', show_progress=True, outputfold
                     altoutputfolder=altoutputfolder
                 )
                 if created_filename:
-                    name = os.path.splitext(os.path.basename(created_filename))[0]
-                    # Remove .ome from name if present at the end
-                    if name.endswith('.ome'):
-                        name = name[:-4]
-                    # full_path should be outputfolder + filename
+                    # Use save_child_name from metadata if available, else fallback to filename logic
+                    if save_child_name:
+                        name = save_child_name
+                    else:
+                        name = os.path.splitext(os.path.basename(created_filename))[0]
+                        if name.endswith('.ome'):
+                            name = name[:-4]
                     full_path = os.path.join(outputfolder, os.path.basename(created_filename))
                     full_path = os.path.normpath(full_path)
-                    # alt_path logic
                     alt_path = None
                     if altoutputfolder:
                         alt_candidate = os.path.join(altoutputfolder, os.path.basename(created_filename))
@@ -100,9 +110,12 @@ def convert_leica(inputfile='', image_uuid='n/a', show_progress=True, outputfold
                         altoutputfolder=altoutputfolder
                     )
                 if created_filename:
-                    name = os.path.splitext(os.path.basename(created_filename))[0]
-                    if name.endswith('.ome'):
-                        name = name[:-4]
+                    if save_child_name:
+                        name = save_child_name
+                    else:
+                        name = os.path.splitext(os.path.basename(created_filename))[0]
+                        if name.endswith('.ome'):
+                            name = name[:-4]
                     full_path = os.path.join(outputfolder, os.path.basename(created_filename))
                     full_path = os.path.normpath(full_path)
                     alt_path = None
@@ -121,10 +134,13 @@ def convert_leica(inputfile='', image_uuid='n/a', show_progress=True, outputfold
         elif filetype in [".xlef", ".lof"]:
             relevant_path = lof_path if lof_path else inputfile
             if ((xs <= xy_check_value and ys <= xy_check_value) or (tiles>1 and overlap_is_negative)):
-                filename = os.path.basename(relevant_path)
-                name = os.path.splitext(filename)[0]
-                if name.endswith('.ome'):
-                    name = name[:-4]
+                if save_child_name:
+                    name = save_child_name
+                else:
+                    filename = os.path.basename(relevant_path)
+                    name = os.path.splitext(filename)[0]
+                    if name.endswith('.ome'):
+                        name = name[:-4]
                 full_path = os.path.normpath(relevant_path)
                 alt_path = None
                 # Copy the file to altoutputfolder and set alt_path
@@ -158,9 +174,12 @@ def convert_leica(inputfile='', image_uuid='n/a', show_progress=True, outputfold
                         altoutputfolder=altoutputfolder
                     )
                 if created_filename:
-                    name = os.path.splitext(os.path.basename(created_filename))[0]
-                    if name.endswith('.ome'):
-                        name = name[:-4]
+                    if save_child_name:
+                        name = save_child_name
+                    else:
+                        name = os.path.splitext(os.path.basename(created_filename))[0]
+                        if name.endswith('.ome'):
+                            name = name[:-4]
                     full_path = os.path.join(outputfolder, os.path.basename(created_filename))
                     full_path = os.path.normpath(full_path)
                     alt_path = None

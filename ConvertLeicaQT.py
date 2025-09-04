@@ -531,7 +531,6 @@ class ConvertLeicaApp(QMainWindow):
         uuid = item.data(0, Qt.ItemDataRole.UserRole + 3)
         ext = os.path.splitext(self.current_file)[1].lower()
 
-    # No special handling for CZI; those files are no longer supported in this UI
         # Find closest ancestor carrying folder_metadata
         folder_meta = None
         ancestor = item.parent()
@@ -558,7 +557,7 @@ class ConvertLeicaApp(QMainWindow):
                 # LIF: fetch full metadata for preview (includes Position, LUTs, etc.)
                 meta = json.loads(read_leica_file(self.current_file, image_uuid=uuid))
 
-            # Start progressive previews (16 → 32 → 64 → 128 → 256 → 384)
+            # Start progressive previews 
             self._start_progressive_preview(meta)
 
             self.selected_image = ImageItem(name=name, uuid=uuid, meta=meta)
@@ -620,6 +619,8 @@ class ConvertLeicaApp(QMainWindow):
 
     def on_convert_finished(self, success: bool, result):
         self.btn_convert.setEnabled(True)
+        # Show the JSON string in the log panel and in a dialog box after converting
+        import json
         if success and result:
             try:
                 items = result if isinstance(result, list) else [result]
@@ -629,7 +630,11 @@ class ConvertLeicaApp(QMainWindow):
                     full = it.get('full_path')
                     alt = it.get('alt_path')
                     lines.append(f"✓ {name}: {full}" + (f" (alt: {alt})" if alt else ""))
-                QMessageBox.information(self, "Done", "\n".join(lines))
+                summary = "\n".join(lines)
+                # Show summary and JSON string in dialog
+                json_str = json.dumps(result, indent=2, ensure_ascii=False)
+                self.append_log("Conversion result (JSON):\n" + json_str)
+                QMessageBox.information(self, "Done", summary + "\n\nJSON Result:\n" + json_str)
             except Exception:
                 QMessageBox.information(self, "Done", "Conversion completed.")
         else:

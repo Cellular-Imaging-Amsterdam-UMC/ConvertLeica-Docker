@@ -72,7 +72,6 @@ def parse_image_xml(xml_element):
     metadata['OverlapPercentageX'] = 0.0
     metadata['OverlapPercentageY'] = 0.0
     metadata['stitching_settings_found'] = False
-    metadata['LOFFile'] = None # For .lof file paths
     metadata['OverlapIsNegative'] = False # True if any overlap percentage is negative
     metadata['dimensions'] = { # Consolidated dimensions
         'x': 1, 'y': 1, 'z': 1, 'c': 1, 't': 1, 's': 1, 'isrgb': False

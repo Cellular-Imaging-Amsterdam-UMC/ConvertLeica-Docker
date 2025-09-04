@@ -103,6 +103,81 @@ def print_progress_bar(progress: float, *, total: float = 100.0, prefix: str = "
 # Metadata helpers - reading Leica JSON produced by ReadLeica* helpers
 # --------------------------------------------------------------------------
 
+def _find_image_hierarchical_path(xlef_path, image_uuid):
+    """
+    Recursively traverse the XLEF/XLCF/XLIF hierarchy to build a hierarchical name
+    for the image with the given UUID. Returns a single underscore-joined string
+    like "Root_Collection1_Collection2_Image" (without any ".xlef/.xlcf" redundancy),
+    or None if not found.
+    """
+    import xml.etree.ElementTree as ET
+    from urllib.parse import unquote
+    import os
+
+    def _traverse(file_path, target_uuid, parent_names, visited):
+        if not os.path.exists(file_path) or file_path in visited:
+            return None
+        visited.add(file_path)
+        try:
+            tree = ET.parse(file_path)
+            root = tree.getroot()
+        except Exception:
+            return None
+        element = root.find(".//Element")
+        if element is None:
+            return None
+        raw_name = element.get("Name", "")
+        this_uuid = element.get("UniqueID", "")
+        ext = file_path.lower().split('.')[-1]
+        # Normalize folder names: prefer the on-disk base name and strip extensions
+        if ext in ("xlef", "xlcf"):
+            base_name = os.path.splitext(os.path.basename(file_path))[0]
+            xml_base = os.path.splitext(raw_name)[0]
+            folder_name = base_name or xml_base or raw_name
+            # Avoid duplicate consecutive names (e.g., Root then Root.xlef)
+            if not parent_names or parent_names[-1] != folder_name:
+                current_names = parent_names + [folder_name]
+            else:
+                current_names = parent_names[:]
+        else:
+            current_names = parent_names[:]
+        # If this is the image node
+        if ext == 'xlif' and this_uuid == target_uuid:
+            image_name = raw_name or os.path.splitext(os.path.basename(file_path))[0]
+            return current_names + [image_name]
+        # If this is a folder (XLEF/XLCF), search children
+        child_elem = element.find("Children")
+        if child_elem is not None:
+            for ref in child_elem.findall("Reference"):
+                ref_file = unquote(ref.get("File") or "")
+                ref_file = ref_file.replace("\\", "/")
+                ref_file = os.path.normpath(os.path.join(os.path.dirname(file_path), ref_file))
+                ref_uuid = ref.get("UUID") or ""
+                ext2 = ref_file.lower().split('.')[-1]
+                # If this is the image node
+                if ext2 == 'xlif' and ref_uuid == target_uuid:
+                    # Get the name from the referenced file
+                    try:
+                        tree2 = ET.parse(ref_file)
+                        root2 = tree2.getroot()
+                        el2 = root2.find(".//Element")
+                        name2_raw = el2.get("Name", "") if el2 is not None else ""
+                        name2 = name2_raw or os.path.splitext(os.path.basename(ref_file))[0]
+                    except Exception:
+                        name2 = ""
+                    return current_names + [name2]
+                # Otherwise, recurse
+                result = _traverse(ref_file, target_uuid, current_names, visited)
+                if result:
+                    return result
+        return None
+
+    root_name = os.path.splitext(os.path.basename(xlef_path))[0]
+    parts = _traverse(xlef_path, image_uuid, [root_name], set())
+    if parts:
+        return "_".join([p for p in parts if p])
+    return None
+
 def _read_xlef_image(xlef_path: str, image_uuid: str) -> dict:
     """Return metadata dict for *one* image UUID inside an XLEF experiment."""
     # Load and search lazily across potentially linked XLEFs
