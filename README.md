@@ -19,6 +19,7 @@ ConvertLeica-Docker is a toolset and web interface for converting Leica LIF, LOF
 - [License](#license)
 - [References](#references)
 - [More documentation](#more-documentation)
+- [LeicaViewerQT (basic)](#leicaviewerqt-basic)
 
 ---
 
@@ -109,6 +110,8 @@ python main.py --inputfile <path-to-LIF/LOF/XLEF> --outputfolder <output-folder>
 - `--show_progress`: Show progress bar during conversion
 - `--altoutputfolder`: Optional second output directory
 - `--xy_check_value`: XY size threshold for special handling (default: 3192)
+- `--get_image_metadata`: Also include full image metadata JSON in the result under `keyvalues.image_metadata_json`
+- `--get_image_xml`: Also include the raw image XML (when available) under `keyvalues.image_xml`
 
 ### Inputs
 
@@ -124,38 +127,45 @@ python main.py --inputfile <path-to-LIF/LOF/XLEF> --outputfolder <output-folder>
 
 ### Function Output Format
 
-The function returns a **JSON array string** describing the conversion result(s). Each element in the array is a dictionary with:
+The function returns a JSON array string describing the conversion result(s). Each element has:
 
 - `name`: base name of the created or relevant file (without extension)
 - `full_path`: absolute path to the output file (OME-TIFF, .LOF, or .LIF)
 - `alt_path`: absolute path to the file in `altoutputfolder` (if used and file exists), else `null`
+- `keyvalues`: a single-item list with a dictionary containing per-channel intensity stats and optional metadata
+
+Per-channel intensity stats (always present when readable):
+
+- `channel_mins`: list[int] per channel, minimum pixel value observed (container units)
+- `channel_maxs`: list[int] per channel, maximum pixel value observed (container units)
+- `channel_display_black_values`: list[int] per channel, display black levels scaled to the container range
+- `channel_display_white_values`: list[int] per channel, display white levels scaled to the container range
+
+Optional metadata fields (included only when flags are used):
+
+- `image_metadata_json`: full parsed image metadata JSON (when `--get_image_metadata`)
+- `image_xml`: raw image XML string if available, else empty string (when `--get_image_xml`)
 
 If no conversion is applicable or an error occurs, an empty JSON array string (`[]`) is returned.
 
-```json
-[
-    {
-        "name": "Image Name",   
-        "full_path": "File Path relative to the docker data volume (i.e. inputfile path)",
-        "alt_path": "File Path relative to the docker data volume (i.e. inputfile path)",
-        "keyvalues": [
-            {
-                "experiment_name": "Cells in mouse brain",
-                "experiment_date": "2025-05-01"
-            }
-        ]
-    }
-]
-```
-
-**Example function output:**
+Example result:
 
 ```json
 [
   {
     "name": "Swiss Rolls GM1748 LEX277AD",
     "full_path": "L:/Archief/active/cellular_imaging/OMERO_test/Leica-LIF/.processed/Swiss Rolls GM1748 LEX277AD.ome.tiff",
-    "alt_path": "U:/cc/Swiss Rolls GM1748 LEX277AD.ome.tiff"
+    "alt_path": "U:/cc/Swiss Rolls GM1748 LEX277AD.ome.tiff",
+    "keyvalues": [
+      {
+        "channel_mins": [1097, 2257, 335, 175],
+        "channel_maxs": [7423, 5907, 10261, 3716],
+        "channel_display_black_values": [1179, 2357, 372, 202],
+        "channel_display_white_values": [6798, 5641, 7002, 2969]
+      },
+      "experiment_name": "Cells in mouse brain",
+      "experiment_date": "2025-05-01"
+    ]
   }
 ]
 ```
@@ -224,3 +234,6 @@ MIT License
 
 - [Server.md](Server.md) — Web server and website documentation, including progressive preview and disk cache behavior, endpoints, and client flow.
 - [ConvertLeicaQT.md](ConvertLeicaQT.md) — Desktop Qt GUI documentation with browsing, progressive previews (cache parity with server), and conversion workflow.
+- [LeicaViewerQT.md](LeicaViewerQT.md) — A lightweight Qt desktop image viewer focused on Leica LIF/LOF/XLEF browsing and quick previewing.
+
+Note: Requires the same Python dependencies as the converter (see requirements) and a working libvips installation.
