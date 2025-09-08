@@ -10,7 +10,7 @@ RUN apt-get update && apt-get install -y libvips-dev && rm -rf /var/lib/apt/list
 
 # Copy project files
 COPY requirements.txt /app/
-COPY main.py leica_converter.py ci_leica_converters_helpers.py ci_leica_converters_single_lif.py ci_leica_converters_ometiff.py ci_leica_converters_ometiff_rgb.py ReadLeicaLIF.py ReadLeicaLOF.py ReadLeicaXLEF.py ParseLeicaImageXML.py ParseLeicaImageXMLLite.py image_channel_stats.py /app/
+COPY main.py leica_converter.py ci_leica_converters_helpers.py ci_leica_converters_single_lif.py ci_leica_converters_ometiff.py ci_leica_converters_ometiff_rgb.py ReadLeicaLIF.py ReadLeicaLOF.py ReadLeicaXLEF.py ParseLeicaImageXML.py ParseLeicaImageXMLLite.py /app/
 
 # Create and activate virtual environment, install dependencies
 RUN python -m venv /opt/venv \
@@ -24,6 +24,7 @@ ENV PATH="/opt/venv/bin:$PATH"
 # Expose convert_leica as a CLI
 ENTRYPOINT ["python", "main.py"]
 
+# docker build --no-cache -t convertleica-docker .   
 # docker build -t convertleica-docker .   
 
 # WSL Example usage:

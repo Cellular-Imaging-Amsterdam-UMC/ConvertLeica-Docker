@@ -5,10 +5,18 @@ import shutil
 from ci_leica_converters_single_lif import convert_leica_to_singlelif
 from ci_leica_converters_ometiff import convert_leica_to_ometiff
 from ci_leica_converters_ometiff_rgb import convert_leica_rgb_to_ometiff
-from ci_leica_converters_helpers import read_image_metadata, _read_xlef_image, _find_image_hierarchical_path
-from image_channel_stats import compute_channel_intensity_stats
+from ci_leica_converters_helpers import read_image_metadata, _read_xlef_image, _find_image_hierarchical_path, compute_channel_intensity_stats
 
-def convert_leica(inputfile='', image_uuid='n/a', show_progress=True, outputfolder=None, altoutputfolder=None, xy_check_value=3192):
+def convert_leica(
+    inputfile: str = '',
+    image_uuid: str = 'n/a',
+    show_progress: bool = True,
+    outputfolder: str | None = None,
+    altoutputfolder: str | None = None,
+    xy_check_value: int = 3192,
+    get_image_metadata: bool = False,
+    get_image_xml: bool = False,
+):
     """
     Converts Leica LIF, LOF, or XLEF files to OME-TIFF, .LOF, or single-image .LIF based on metadata and specific rules.
 
@@ -19,6 +27,8 @@ def convert_leica(inputfile='', image_uuid='n/a', show_progress=True, outputfold
         outputfolder (str, optional): Output directory for converted files. Defaults to None.
         altoutputfolder (str, optional): Optional alternative second output folder. Defaults to None.
         xy_check_value (int, optional): Threshold for XY dimensions to determine conversion type. Defaults to 3192.
+        get_image_metadata (bool, optional): When True, include full image metadata JSON under keyvalues.image_metadata_json. Defaults to False.
+        get_image_xml (bool, optional): When True, include raw image XML string under keyvalues.image_xml (empty if unavailable). Defaults to False.
 
     Returns:
         str: JSON array string with conversion results. Each element is a dict with keys:
@@ -72,8 +82,10 @@ def convert_leica(inputfile='', image_uuid='n/a', show_progress=True, outputfold
                     # Compute per-channel stats once
                     stats = compute_channel_intensity_stats(metadata, sample_fraction=0.1, use_memmap=True)
                     kv = dict(stats)
-                    kv["image_metadata_json"] = metadata
-                    kv["image_xml"] = metadata.get("xmlElement") or ""
+                    if get_image_metadata:
+                        kv["image_metadata_json"] = metadata
+                    if get_image_xml:
+                        kv["image_xml"] = metadata.get("xmlElement") or ""
                     # Use save_child_name from metadata if available, else fallback to filename logic
                     if save_child_name:
                         name = save_child_name
@@ -123,8 +135,10 @@ def convert_leica(inputfile='', image_uuid='n/a', show_progress=True, outputfold
                 if created_filename:
                     stats = compute_channel_intensity_stats(metadata, sample_fraction=0.1, use_memmap=True)
                     kv = dict(stats)
-                    kv["image_metadata_json"] = metadata
-                    kv["image_xml"] = metadata.get("xmlElement") or ""
+                    if get_image_metadata:
+                        kv["image_metadata_json"] = metadata
+                    if get_image_xml:
+                        kv["image_xml"] = metadata.get("xmlElement") or ""
                     if save_child_name:
                         name = save_child_name
                     else:
@@ -156,8 +170,10 @@ def convert_leica(inputfile='', image_uuid='n/a', show_progress=True, outputfold
             if ((xs <= xy_check_value and ys <= xy_check_value) or (tiles>1 and overlap_is_negative)):
                 stats = compute_channel_intensity_stats(metadata, sample_fraction=0.1, use_memmap=True)
                 kv = dict(stats)
-                kv["image_metadata_json"] = metadata
-                kv["image_xml"] = metadata.get("xmlElement") or ""
+                if get_image_metadata:
+                    kv["image_metadata_json"] = metadata
+                if get_image_xml:
+                    kv["image_xml"] = metadata.get("xmlElement") or ""
                 if save_child_name:
                     name = save_child_name
                 else:
@@ -205,8 +221,10 @@ def convert_leica(inputfile='', image_uuid='n/a', show_progress=True, outputfold
                 if created_filename:
                     stats = compute_channel_intensity_stats(metadata, sample_fraction=0.1, use_memmap=True)
                     kv = dict(stats)
-                    kv["image_metadata_json"] = metadata
-                    kv["image_xml"] = metadata.get("xmlElement") or ""
+                    if get_image_metadata:
+                        kv["image_metadata_json"] = metadata
+                    if get_image_xml:
+                        kv["image_xml"] = metadata.get("xmlElement") or ""
                     if save_child_name:
                         name = save_child_name
                     else:

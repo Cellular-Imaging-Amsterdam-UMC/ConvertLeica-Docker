@@ -270,7 +270,7 @@
 
         // LoadPreview function to updates currentImageUuid and currentFilePath
         // and show/hide the export button
-    async function loadPreview(item) {
+        async function loadPreview(item) {
             // Store current image information for export
             currentImageUuid = item.uuid;
             currentFilePath = item.path;
@@ -320,10 +320,10 @@
                     }
                 } catch {}
 
-                                const steps = Array.isArray(PREVIEW_STEPS) && PREVIEW_STEPS.length
-                                    ? PREVIEW_STEPS.slice() : [];
+                const steps = Array.isArray(PREVIEW_STEPS) && PREVIEW_STEPS.length
+                    ? PREVIEW_STEPS.slice() : [];
 
-                                const maxStep = steps.length ? Math.max(...steps) : (PREVIEW_SIZE || 0);
+                const maxStep = steps.length ? Math.max(...steps) : (PREVIEW_SIZE || 0);
 
                 // If image is small (≤2048×2048), fetch only the max preview once.
                 const SMALL_LIMIT = 2048;

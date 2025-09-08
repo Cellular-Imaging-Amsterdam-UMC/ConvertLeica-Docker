@@ -285,10 +285,21 @@ class MyHTTPRequestHandler(SimpleHTTPRequestHandler):
             )
             sse.flush()
 
+            # Parse and log the JSON result to the SSE progress stream (like GUI log)
             try:
                 result = json.loads(result_json)
-            except:
+            except Exception:
                 result = []
+            try:
+                pretty = json.dumps(result if result else result_json, indent=2, ensure_ascii=False)
+                print("Conversion result (JSON):\n" + pretty)
+            except Exception:
+                # Best effort: print the raw string
+                try:
+                    print("Conversion result (JSON):\n" + str(result_json))
+                except Exception:
+                    pass
+            sse.flush()
             payload = {"type":"result","payload":{"success":bool(result),"result":result}}
             if sse.wfile:
                 self.wfile.write(f"data: {json.dumps(payload)}\n\n".encode())

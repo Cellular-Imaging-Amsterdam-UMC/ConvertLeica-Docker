@@ -4,10 +4,34 @@
         "full_path": "File Path relative to the docker data volume (i.e. inputfile path)",
         "alt_path": "File Path relative to the docker data volume (i.e. inputfile path)",
         "keyvalues": [
-            {
-                "experiment_name": "Cells in mouse brain",
-                "experiment_date": "2025-05-01"
-            }
+        {
+            "channel_mins": [
+                1097,
+                2257,
+                335,
+                175
+            ],
+            "channel_maxs": [
+                7423,
+                5907,
+                10261,
+                3716
+            ],
+            "channel_display_black_values": [
+                1179,
+                2357,
+                372,
+                202
+            ],
+            "channel_display_white_values": [
+                6798,
+                5641,
+                7002,
+                2969
+            ],
+            "experiment_name": "Cells in mouse brain",
+            "experiment_date": "2025-05-01"
+        }
         ]
     }
 ]
